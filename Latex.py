@@ -40,9 +40,9 @@ def dump():
     global document
     document += "\n" + FOOTER 
     print "Generating pdf ..."
-    print document
+    #print document
     out, err = subprocess.Popen(["pdflatex", "-output-directory=out/"], 
-                                #stdout=subprocess.PIPE, 
+                                stdout=subprocess.PIPE, 
                                 stdin=subprocess.PIPE).communicate(document)
     print "Done"
     #write document to a file

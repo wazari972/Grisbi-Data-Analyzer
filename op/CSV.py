@@ -75,8 +75,8 @@ class CSV(Operator):
                 
             for dateValue in self.transacs:
                 lst = [dateValue.date]
-                for x in dateValue.values.values():
-                    lst.append(x)
+                for key in self.getKeySet():
+                    lst.append(dateValue.values[key])
                 writer.writerow(lst)
             ofile.close()
             return self.do_plot(fname)

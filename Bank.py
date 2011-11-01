@@ -33,6 +33,7 @@ class Account(UIDName):
         try:
             return Account.accounts[acc_uid]
         except:
+            import pdb;pdb.set_trace()
             return defaultAccount
 defaultAccount = Account("-1", "Default")
 
@@ -73,7 +74,7 @@ class SubCategory(UIDName):
 
         self.cat = Category.getCat(cat_uid)
         self.cat.addSubCat(self)
-defaultSubCat = SubCategory("-1", "Default", defaultCat)
+defaultSubCat = SubCategory("-1", "Default", "-1")
 
 class Transaction:
     transactions = []
