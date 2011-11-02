@@ -37,7 +37,7 @@ do_plot <- function(name, values) {
     plot.new()
     plot.window(xlim=c(0, size), ylim=range, xaxs='i', yaxs='i')
     axis(2)
-    lines(seq(1,size), values, col="orange")
+    lines(seq(1,size), values, col="blue")
     title(paste("Account", name, sep=" - "))
     box()
 }

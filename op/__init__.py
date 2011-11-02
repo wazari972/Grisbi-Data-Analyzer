@@ -48,7 +48,11 @@ class Operator:
         pass
     def register(self):
         self.registered = True
-
+    
+    @staticmethod
+    def inverted():
+        return False
+    
     @staticmethod
     def newTransaction(transac):
         for op in Operator.operations:

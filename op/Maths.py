@@ -10,32 +10,42 @@ class Maths(Operator):
         
         for cls in self.get_doers():
             self.doers.append(cls())
-
+        self.daily = 0
+        
     def get_doers(self):
         return None
         
     def process(self, transac):
+        self.daily += transac.montant
+    
+    def day(self):
+        coef = self.inverted() and -1 or 1
         for doer in self.doers:
-            doer.do(transac.montant)
+            doer.do(self.daily*coef)
+        self.daily = 0
 
     def dump(self):
         ret = {}
-        
         for doer in self.doers:
             ret = dict(ret.items() + doer.dump().items())
         return ret
+        
 ###########################################
 
 class MathsCat(Maths):
     def __init__(self, cat):
         Maths.__init__(self)
         self.cat = cat
-    
+        self.do = True
+        
     def accept(self, transac):
         return self.cat == transac.cat
 
     def get_doers(self):
-        return (Min, Max, Total)
+        return (Max, Total, Avg)
+        
+    def inverted(self):
+        return self.cat.inverted
 
 class MathsAccount(Maths):
     def __init__(self, account):
@@ -47,6 +57,9 @@ class MathsAccount(Maths):
 
     def get_doers(self):
         return (Total, MinMaxTotal)
+        
+    def inverted(self):
+        return False
 ##############################################
 
 class Total:
@@ -75,17 +88,6 @@ class MinMaxTotal:
     def dump(self):
         return {"Min value": self.mintot, "Max value": self.maxtot}
 
-        
-class Min:
-    def __init__(self):
-        self.min = None
-        
-    def do(self, montant):
-        if self.min > montant or self.min is None:
-            self.min = montant
-            
-    def dump(self):
-        return {"Min": self.min}
 class Max:
     def __init__(self):
         self.max = None
@@ -96,3 +98,15 @@ class Max:
 
     def dump(self):
         return {"Max": self.max}
+
+class Avg:
+    def __init__(self):
+        self.total = 0
+        self.count = 0
+        
+    def do(self, montant):
+        self.total += montant
+        self.count += 1
+        
+    def dump(self):
+        return {"Daily": "%.2f (%d days)" % (self.total/self.count, self.count)}

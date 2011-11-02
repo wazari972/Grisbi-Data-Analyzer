@@ -46,7 +46,9 @@ Latex.new_part("Categories")
 print "Dump category information ..."
 for cpt in range(0, len(cvs_cat_ops)):
     op = cvs_cat_ops[cpt]
-    Latex.new_section(op.cat.name)
+    if op.cat.skip:
+        continue
+    Latex.new_section("%s (%s)" % (op.cat.name, op.cat.inverted and "Debit" or "Credit"))
     Latex.add_graph(op.dump()[0])
     Latex.start_maths()
     for name, value in maths_cat_ops[cpt].dump().items():

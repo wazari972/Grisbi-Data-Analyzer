@@ -67,6 +67,6 @@ for (id in 1:length(lists)) {
 }
 
 title(paste("Category", CATE_NAME, sep=" - "))
-legend("bottom", legend=names, fill=rain)
+legend("top", legend=names, fill=rain)
 
 box()

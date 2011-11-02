@@ -10,7 +10,7 @@ def do_import(filename):
         Account(account.get("Number"), account.get("Name"))
 
     for category in Grisbi.findall("Category"):
-        Category(category.get("Nb"), category.get("Na"))
+        Category(category.get("Nb"), category.get("Na"), category.get("Kd") == "1")
 
     for sub_category in Grisbi.findall("Sub_category"):
         SubCategory(sub_category.get("Nb"),

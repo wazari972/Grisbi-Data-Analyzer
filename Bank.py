@@ -22,29 +22,50 @@ class UIDName:
         return self.ops
 
 class Account(UIDName):
+    INIT_VALUES_FNAME = "Accounts-init.txt"
+    init_values = None
     accounts = {}
+    
+    @staticmethod
+    def init_init_values():
+        Account.init_values = {}
+        f = open(Account.INIT_VALUES_FNAME, 'r')
+        for line in f.readlines():
+            vals = line.split("=")
+            Account.init_values[vals[0]] = int(vals[1])
+        
     def __init__(self, uid, name):
+        if Account.init_values is None:
+            Account.init_init_values()
+            
         UIDName.__init__(self, uid, name)
         Account.accounts[uid] = self
-
+        if Account.init_values.has_key(name):
+            self.init_value = Account.init_values[name]
+        else:
+            self.init_value = 0
+            
     @staticmethod
     def getAccount(acc_uid):
         global defaultAccount
         try:
             return Account.accounts[acc_uid]
         except:
-            import pdb;pdb.set_trace()
+            global defaultAccount
+            if defaultAccount is None:
+                defaultAccount = Account("-1", "Default")
             return defaultAccount
-defaultAccount = Account("-1", "Default")
+defaultAccount = None
 
 class Category(UIDName):
     categories = {}
-    def __init__(self, uid, name):
+    def __init__(self, uid, name, inverted=False, skip=False):
         UIDName.__init__(self, uid, name)
         Category.categories[uid] = self
-
+        self.inverted = inverted
         self.subcats = {}
-
+        self.skip = skip
+        
     def addSubCat(self, subcat):
         self.subcats[subcat.uid] = subcat
 
@@ -64,9 +85,14 @@ class Category(UIDName):
         try:
             return Category.categories[uid]
         except KeyError:
+            global defaultCat, defaultSubCat
+            if defaultCat is None:
+                print "default", uid
+                defaultCat = Category("-1", "Default")
+                defaultSubCat = SubCategory("-1", "Default", "-1")
             return defaultCat
-
-defaultCat = Category("-1", "Default")
+defaultCat = None 
+defaultSubCat = None
 
 class SubCategory(UIDName):
     def __init__(self, uid, name, cat_uid):
@@ -74,7 +100,9 @@ class SubCategory(UIDName):
 
         self.cat = Category.getCat(cat_uid)
         self.cat.addSubCat(self)
-defaultSubCat = SubCategory("-1", "Default", "-1")
+
+transferCat = Category("0", "Transfer", skip=True)
+transferSubCat = SubCategory("0", "Transfer", "0")
 
 class Transaction:
     transactions = []

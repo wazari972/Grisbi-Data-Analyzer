@@ -27,9 +27,10 @@ class CSV(Operator):
         self.length = 1
         CSV.uid += 1
     
-    def process(self, transac):
+    def process(self, transac):           
         assert self.current is not None
-        self.current.values[self.getKey(transac)] += transac.montant
+        coef = self.inverted() and -1 or 1
+        self.current.values[self.getKey(transac)] += transac.montant*coef
     
     def getKey(self, transac):
         return 0
@@ -37,8 +38,13 @@ class CSV(Operator):
     def getKeySet(self):
         return (0)
         
-    def getKeySet(self):
-            return ("Total")
+    def getNameSet(self):
+        return ("Total")
+            
+    def getInitValues(self):
+        values = {}
+        for key in self.getKeySet():
+            values[key] = 0
     
     def newDayValues(self, previousValues):
         values = {}
@@ -48,11 +54,13 @@ class CSV(Operator):
         return values
       
     def day(self):
-        previous = None
+        
         if self.current is not None:
             previous = self.current.values
             self.transacs.append(self.current)
-        
+        else:
+            previous = self.getInitValues()
+            
         self.current = DateValue(self.currentKey(), self.newDayValues(previous))
     #do the same for YEAR and MONTH
     month = day
@@ -110,9 +118,16 @@ class CSV_All_Account(CSV):
     def getNameSet(self):            
         return [x.name for x in Bank.Account.accounts.values()]
     
+    def getInitValues(self):
+        values = {}
+        for acc in Bank.Account.accounts.values():
+            values[acc.uid] = acc.init_value
+        return values
+    
     def accept(self, transac):
         return True
 
+    
 class CSV_Cumul_Account(CSV_Cumul, CSV_All_Account):
     def __init__(self):
         CSV_Cumul.__init__(self)
@@ -133,7 +148,7 @@ class CSV_Category(CSV):
     def __init__(self, category):
         CSV.__init__(self)
         self.cat = category
-    
+        
     def accept(self, transac):
         return self.cat == transac.cat
 
@@ -145,7 +160,10 @@ class CSV_Category(CSV):
             
     def getNameSet(self):            
         return [x.name for x in self.cat.subcats.values()]
-                
+        
+    def inverted(self):
+        return self.cat.inverted
+        
 class CSV_Cumul_Category(CSV_Cumul, CSV_Category):
     def __init__(self, category):
         CSV_Cumul.__init__(self)
