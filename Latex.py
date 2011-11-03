@@ -24,6 +24,10 @@ def new_section(name):
     global document
     document += "\n" + "\subsection{%s}" % name
 
+def new_subsection(name):
+    global document
+    document += "\n" + "\subsubsection{%s}" % name
+    
 def add_graph(fname):
     global document
     document += "\n" + "\includegraphics[width=\\textwidth]{%s}" % fname

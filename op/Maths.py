@@ -32,15 +32,25 @@ class Maths(Operator):
         
 ###########################################
 
-class MathsCat(Maths):
+
+        
+class MathsCatSubCat(Maths):
     def __init__(self, cat):
         Maths.__init__(self)
         self.cat = cat
         self.do = True
         
+        if isinstance(cat, Category):
+            self.subcats = [MathsCatSubCat(subcat) for subcat in cat.subcats.values()]
+        else:
+            assert isinstance(cat, SubCategory)
+            
     def accept(self, transac):
-        return self.cat == transac.cat
-
+        if isinstance(self.cat, Category):
+            return self.cat == transac.cat
+        else:
+            return self.cat == transac.subcat
+            
     def get_doers(self):
         return (Max, Total, Avg)
         
@@ -109,4 +119,7 @@ class Avg:
         self.count += 1
         
     def dump(self):
-        return {"Daily": "%.2f (%d days)" % (self.total/self.count, self.count)}
+        daily = self.total/self.count
+        return {"Daily": "%.2f (%d days)" % (daily, self.count),
+                "Monthly": "%.2f" % (daily*30.5)
+                }

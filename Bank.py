@@ -100,7 +100,8 @@ class SubCategory(UIDName):
 
         self.cat = Category.getCat(cat_uid)
         self.cat.addSubCat(self)
-
+        self.inverted = self.cat.inverted
+        
 transferCat = Category("0", "Transfer", skip=True)
 transferSubCat = SubCategory("0", "Transfer", "0")
 
