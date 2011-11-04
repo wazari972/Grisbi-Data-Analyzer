@@ -32,17 +32,20 @@ acc_files = csvTotal.dump()
 Latex.new_part("Accounts")
 Latex.new_section("Total")
 Latex.add_graph(acc_files[-1])
-for name, value in mathsTotal.dump().items():
-    Latex.add_math(name, value)
+Latex.start_maths()
+Latex.add_maths("Total", mathsTotal.dump())
+Latex.stop_maths()
+    
+    
 for cpt in range(0, len(Account.accounts)):
     acc = Account.accounts.values()[cpt]
     Latex.new_section(acc.name)
     Latex.add_graph(acc_files[cpt])
     
     Latex.start_maths()
-    for name, value in maths_acc_ops[cpt].dump().items():
-        Latex.add_math(name, value)
-
+    Latex.add_maths(acc.name, maths_acc_ops[cpt].dump())
+    Latex.stop_maths()
+    
 Latex.new_part("Categories")
 print "Dump category information ..."
 for cpt in range(0, len(cvs_cat_ops)):
@@ -53,14 +56,12 @@ for cpt in range(0, len(cvs_cat_ops)):
     Latex.add_graph(op.dump()[0])
     
     Latex.start_maths()
-    for name, value in maths_cat_ops[cpt].dump().items():
-        Latex.add_math(name, value)
+    Latex.add_maths(op.cat.name, maths_cat_ops[cpt].dump())
         
     for subcat_op in maths_cat_ops[cpt].subcats:
-        Latex.new_subsection(subcat_op.cat.name)
-        Latex.start_maths()
-        for name, value in subcat_op.dump().items():
-            Latex.add_math(name, value)
-            
+        name = subcat_op.cat.name
+        Latex.add_maths(name, subcat_op.dump())
+        
+    Latex.stop_maths()    
 Latex.dump()
 
