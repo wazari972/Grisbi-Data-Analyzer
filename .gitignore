@@ -1,3 +1,6 @@
 comptes.gsb
 *.pyc
 *~
+*.old
+grisbi/
+out/

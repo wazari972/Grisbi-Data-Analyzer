@@ -21,6 +21,17 @@ ofile_name <- function(name) {
         return(paste(paste(PREFIX, name, sep="-"), SUFFIX, sep="."))
     }
 
+plot_months <- function(dates) {
+    dates <- lapply(dates, as.character)
+    for (id in 2:size) {
+        new_date <- dates[id]
+        old_date <- dates[[id-1]]
+        if (any(grep("-1$", new_date)) && any(grep("-30$", old_date), grep("-31$", old_date))) {
+            abline(v = id,  col="seagreen4",lty=2) # add vertical line at month break
+        }
+    }    
+}
+    
 account <- read.csv(file=IN_FILE, head=TRUE, sep=";")
 
 if (length(names(account)) == 1)
@@ -38,6 +49,7 @@ do_plot <- function(name, values) {
     plot.window(xlim=c(0, size), ylim=range, xaxs='i', yaxs='i')
     axis(2)
     lines(seq(1,size), values, col="blue")
+    plot_months(account$Date)
     title(paste("Account", name, sep=" - "))
     box()
 }

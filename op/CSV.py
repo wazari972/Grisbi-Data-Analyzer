@@ -66,6 +66,9 @@ class CSV(Operator):
     month = day
     year = day
 
+    def reset(self):
+        self.current = DateValue(self.currentKey(), self.newDayValues(None))
+    
     def name(self):
         return self.uid
 
@@ -104,7 +107,6 @@ class CSV_Cumul:
                 values[key] = previousValues[key]
         return values
         
-
 class CSV_All_Account(CSV):
     def __init__(self):
         CSV.__init__(self)
@@ -163,6 +165,10 @@ class CSV_Category(CSV):
         
     def inverted(self):
         return self.cat.inverted
+        
+    def rotate(self):
+        self.reset()
+        self.day()
         
 class CSV_Cumul_Category(CSV_Cumul, CSV_Category):
     def __init__(self, category):

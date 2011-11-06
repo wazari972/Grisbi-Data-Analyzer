@@ -61,7 +61,6 @@ def stop_maths():
         if first:
             first = False
             document += "\n\\hline\n" 
-    #document += "\\hline\n"
     document += "\n" + "\\end{tabular}"
     document += "\n" + "\\end{center}"
     maths = None
@@ -70,7 +69,7 @@ def dump():
     global document
     document += "\n" + FOOTER 
     print "Generating pdf ..."
-    print document
+    #print document
     out, err = subprocess.Popen(["pdflatex", "-output-directory=out/"], 
                                 stdout=subprocess.PIPE, 
                                 stdin=subprocess.PIPE).communicate(document)

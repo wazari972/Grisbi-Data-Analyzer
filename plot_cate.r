@@ -18,6 +18,17 @@ fix_range <- function(range) {
     range <- c(min(range) - inc, max(range) + inc)
     }
 
+plot_months <- function(dates, size) {
+    dates <- lapply(dates, as.character)
+    for (id in 2:size) {
+        new_date <- dates[id]
+        old_date <- dates[[id-1]]
+        if (any(grep("-1$", new_date)) && any(grep("-30$", old_date), grep("-31$", old_date))) {
+            abline(v = id,  col="seagreen4",lty=2) # add vertical line at month break
+        }
+    }    
+}
+    
 FILE <- args[1]
 FILENAME <- lapply(strsplit(FILE, "\\."), function(x) x[1])
 CATE_NAME <- lapply(strsplit(FILENAME[[1]], "-"), function(x) x[3])
@@ -63,8 +74,9 @@ rain <- rainbow(length(names(category)), start=.7, end=.1)
 
 for (id in 1:length(lists)) {
     lines(seq(1,size), lists[[id]], col=rain[id])
-    
 }
+
+plot_months(category$Date, size)
 
 title(paste("Category", CATE_NAME, sep=" - "))
 legend("top", legend=names, fill=rain)

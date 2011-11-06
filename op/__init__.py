@@ -1,4 +1,6 @@
 class Operator:
+    MONTHLY = True
+    
     operations = []
 
     currentDay = None
@@ -9,13 +11,10 @@ class Operator:
         self.registered = False
         Operator.operations.append(self)
 
-    def accept(self, transac):
-        return True
-    def process(self, transac):
-        pass
+    def accept(self, transac): return True
+    def process(self, transac): pass
 
-    def year(self):
-        pass
+    def year(self): pass
     @staticmethod
     def new_year(year, month, day):
         #print "Year %s/%s/%s" % (year, month, day)
@@ -25,8 +24,7 @@ class Operator:
         for oper in Operator.operations:
             oper.year()
 
-    def month(self):
-        pass
+    def month(self): pass
     @staticmethod
     def new_month(month, day):
         #print "Month %s/%s" % (month, day)
@@ -34,20 +32,22 @@ class Operator:
         Operator.currentDay = day
         for op in Operator.operations:
             op.month()
+            if Operator.MONTHLY:
+                op.rotate()
 
-    def day(self):
-        pass
+    def day(self): pass
     @staticmethod
     def new_day(day):
         #print "Day %s" % day
         Operator.currentDay = day
         for op in Operator.operations:
             op.day()
-
-    def dump(self):
-        pass
+            
+    def dump(self): pass
     def register(self):
         self.registered = True
+    
+    def rotate(self): pass
     
     @staticmethod
     def inverted():
