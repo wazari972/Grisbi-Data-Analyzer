@@ -7,7 +7,7 @@ from op import Operator, Maths, CSV
 import Latex
 
 ###############################
-Grisbi.do_import("comptes.gsb")
+Grisbi.do_import("in/comptes.gsb")
 ###############################
 
 cvs_cat_ops = []

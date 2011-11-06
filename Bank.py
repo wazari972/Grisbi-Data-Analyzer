@@ -22,28 +22,12 @@ class UIDName:
         return self.ops
 
 class Account(UIDName):
-    INIT_VALUES_FNAME = "Accounts-init.txt"
-    init_values = None
     accounts = {}
-    
-    @staticmethod
-    def init_init_values():
-        Account.init_values = {}
-        f = open(Account.INIT_VALUES_FNAME, 'r')
-        for line in f.readlines():
-            vals = line.split("=")
-            Account.init_values[vals[0]] = int(vals[1])
         
-    def __init__(self, uid, name):
-        if Account.init_values is None:
-            Account.init_init_values()
-            
+    def __init__(self, uid, name, init_value=0):
         UIDName.__init__(self, uid, name)
         Account.accounts[uid] = self
-        if Account.init_values.has_key(name):
-            self.init_value = Account.init_values[name]
-        else:
-            self.init_value = 0
+        self.init_value = init_value
             
     @staticmethod
     def getAccount(acc_uid):

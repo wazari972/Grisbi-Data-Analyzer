@@ -7,7 +7,7 @@ def do_import(filename):
     Grisbi = etree.parse(filename).getroot()
 
     for account in Grisbi.findall("Account"):
-        Account(account.get("Number"), account.get("Name"))
+        Account(account.get("Number"), account.get("Name"), float(account.get("Initial_balance")))
 
     for category in Grisbi.findall("Category"):
         Category(category.get("Nb"), category.get("Na"), category.get("Kd") == "1")

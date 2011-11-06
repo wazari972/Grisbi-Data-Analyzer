@@ -8,12 +8,12 @@ class Maths(Operator):
         Operator.__init__(self)
         self.doers = []
         
-        for cls in self.get_doers():
-            self.doers.append(cls())
+        for doer in self.get_doers():
+            self.doers.append(doer)
         self.daily = 0
         
     def get_doers(self):
-        return None
+        return ()
         
     def process(self, transac):
         self.daily += transac.montant
@@ -30,6 +30,8 @@ class Maths(Operator):
             ret = dict(ret.items() + doer.dump().items())
         return ret
         
+    def init_value():
+        return None
 ###########################################
 
 
@@ -52,29 +54,36 @@ class MathsCatSubCat(Maths):
             return self.cat == transac.subcat
             
     def get_doers(self):
-        return (Max, Total, Avg)
+        return (Max(), Total(), Avg())
         
     def inverted(self):
         return self.cat.inverted
 
 class MathsAccount(Maths):
     def __init__(self, account):
-        Maths.__init__(self)
         self.acc = account
+        if account is None:
+            self.init_value = 0
+            for acc in Account.accounts.values():
+                self.init_value += acc.init_value
+        else:
+            self.init_value = account.init_value
+        Maths.__init__(self)
 
     def accept(self, transac):
         return self.acc is None or self.acc == transac.account
 
     def get_doers(self):
-        return (Total, MinMaxTotal)
+        return (Total(self.init_value), MinMaxTotal(self.init_value))
         
     def inverted(self):
         return False
+        
 ##############################################
 
 class Total:
-    def __init__(self):
-        self.total = 0
+    def __init__(self, init_value=0):
+        self.total = init_value
         
     def do(self, montant):
         self.total +=  montant
@@ -83,8 +92,8 @@ class Total:
         return {"Total": self.total}
 
 class MinMaxTotal:
-    def __init__(self):
-        self.total = 0
+    def __init__(self, init_value=0):
+        self.total = init_value
         self.mintot = None
         self.maxtot = None
         
