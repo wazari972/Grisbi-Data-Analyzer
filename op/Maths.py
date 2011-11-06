@@ -11,6 +11,7 @@ class Maths(Operator):
         for doer in self.get_doers():
             self.doers.append(doer)
         self.daily = 0
+        self.dumps = []
         
     def get_doers(self):
         return ()
@@ -24,14 +25,22 @@ class Maths(Operator):
             doer.do(self.daily*coef)
         self.daily = 0
 
-    def dump(self):
+    def dump(self, intermediate=False):
         ret = {}
         for doer in self.doers:
             ret = dict(ret.items() + doer.dump().items())
-        return ret
+            
+        self.dumps.append(ret)
+        dumps = self.dumps
+        if not intermediate:
+            self.dumps = []
+        return dumps
         
     def init_value():
         return None
+        
+    def rotate(self):
+        self.dump(intermediate=True)
 ###########################################
 
 
@@ -54,8 +63,10 @@ class MathsCatSubCat(Maths):
             return self.cat == transac.subcat
             
     def get_doers(self):
-        return (Max(), Total(), Avg())
-        
+        if Operator.MONTHLY:
+            return (Max(), Total())
+        else:
+            return (Max(), Total(), Avg())
     def inverted(self):
         return self.cat.inverted
 
@@ -83,16 +94,21 @@ class MathsAccount(Maths):
 
 class Total:
     def __init__(self, init_value=0):
+        self.init_value = init_value
         self.total = init_value
         
     def do(self, montant):
         self.total +=  montant
     
     def dump(self):
-        return {"Total": self.total}
+        ret = {"Total": self.total}
+        if self.init_value == 0:
+            self.total = 0
+        return ret
 
 class MinMaxTotal:
     def __init__(self, init_value=0):
+        self.init_value = init_value
         self.total = init_value
         self.mintot = None
         self.maxtot = None
@@ -105,7 +121,12 @@ class MinMaxTotal:
             self.maxtot = self.total
             
     def dump(self):
-        return {"Min value": self.mintot, "Max value": self.maxtot}
+        ret = {"Mini": self.mintot, "Maxi": self.maxtot}
+        if self.init_value == 0:
+            self.total = 0
+        self.mintot = None
+        self.maxtot = None
+        return ret
 
 class Max:
     def __init__(self):
@@ -116,7 +137,9 @@ class Max:
             self.max = montant
 
     def dump(self):
-        return {"Max": self.max}
+        ret = {"Max": self.max}
+        self.max = None
+        return ret
 
 class Avg:
     def __init__(self):
@@ -129,6 +152,6 @@ class Avg:
         
     def dump(self):
         daily = self.total/self.count
-        return {"Daily": daily,
-                "Monthly": daily*30.5
-                }
+        self.total = 0
+        self.count = 0
+        return {"Monthly": daily*30.5}

@@ -3,7 +3,7 @@ import subprocess
 HEADER = """
 \documentclass[12pt]{article}
 \usepackage[pdftex]{graphicx}
-\usepackage{geometry}
+\usepackage[top=0.5in, bottom=0.5in,left=0.5in, landscape]{geometry}
 \\title{Releve de compte}
 \date{\\today}
 \\usepackage{multicol}
@@ -17,23 +17,38 @@ FOOTER = """
 """
 
 document = HEADER
-
+first_sec = True
 def new_part(name):
-    global document
-    document += "\n" + "\section{%s}" % name
+    global document, first_sec
+    first_sec = False
+    document += "\n" + "\\newpage"
+    document += "\n" + "\part{%s}" % name
     
 def new_section(name):
-    global document
-    document += "\n" + "\subsection{%s}" % name
+    global document, first_sec
+    first_subsec = True
+    if first_sec:
+        first_sec = False
+    else:
+        document += "\n" + "\\newpage"
+    document += "\n" + "\section{%s}" % name
 
+first_subsec = True
 def new_subsection(name):
-    global document
-    document += "\n" + "\subsubsection{%s}" % name
+    global document, first_subsec
+    if first_subsec:
+        first_subsec = False
+    else:
+        document += "\n" + "\\newpage"
+    document += "\n" + "\subsection{%s}" % name  
     
 def add_graph(fname):
     global document
-    document += "\n" + "\includegraphics[width=\\textwidth]{%s}" % fname
-
+    document += "\n" + "\\begin{center}"
+    document += "\n" + "\includegraphics[width=400pt]{%s}" % fname
+    document += "\n" + "\\end{center}"
+    document += "\n" + "\\vspace{-5em}"
+    
 maths = None
 mathsList = None
 def start_maths():
@@ -45,18 +60,24 @@ def add_maths(name, values):
     global maths
     maths[name] = values
     mathsList.append(name)
-    
+
 def stop_maths():
     global document, maths, mathsList
-    keys = maths.values()[0].keys()
+    if len(maths.values()[0]) == 1:
+        stop_maths_single()
+    else:
+        stop_maths_monthly()
+def stop_maths_single():
+    global document, maths, mathsList
+    opKeys = maths.values()[0][0].keys()
     document += "\n" + "\\begin{center}"
-    document += "\n" + "\\begin{tabular}{ l %s}" % (" | l "*len(keys))
+    document += "\n" + "\\begin{tabular}{ l %s}" % (" | l "*len(opKeys))
     
-    document += "&" + " & ".join(keys) + "\\\\"
+    document += "&" + " & ".join(opKeys) + "\\\\"
     document += "\n" + "\\hline\n"
     first = True
     for name in mathsList:
-        document += name + " &" + " & ".join([u"%.0f\euro" % maths[name][key] for key in keys]) + "\\\\\n"
+        document += name + " &" + " & ".join(["%.0f\euro" % maths[name][0][key] for key in opKeys]) + "\\\\\n"
         document += "\n" 
         if first:
             first = False
@@ -65,6 +86,36 @@ def stop_maths():
     document += "\n" + "\\end{center}"
     maths = None
     
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+def stop_maths_monthly():
+    global document, maths, mathsList
+    opKeys = maths.values()[0][0].keys()
+    first = True
+    months = [ i for i in range(1, len(maths.values()[0])+1)]
+    for name in mathsList:
+        if first:
+            first = False
+            document += "\n\paragraph{%s}~\\\\"  % name
+            cat = name
+        else:
+            document += "\n" + "\\vspace{-1em}"
+            document += "\n\paragraph{%s/%s}~\\\\"  % (cat, name)
+        document += "\n" + "\\begin{tabular}{ l %s}" % (" | p{1.25cm} "*len(months))
+        
+        document += "&" + " & ".join([MONTHS[month-1] for month in months]) + "\\\\"
+        document += "\n" + "\\hline\n"
+        for key in opKeys:
+            document += key
+            for month in months:
+                val = maths[name][month-1][key] 
+                if val == 0:
+                    document += "& . "
+                else:
+                    document += "& %.0f" % val
+            document += "\\\\\n"
+        document += "\n" + "\\end{tabular}"
+        document += "\\\\\n"
+
 def dump():
     global document
     document += "\n" + FOOTER 
