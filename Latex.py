@@ -7,6 +7,7 @@ HEADER = """
 \\title{Releve de compte}
 \date{\\today}
 \\usepackage{multicol}
+\\usepackage{eurosym}
 \\begin{document}
 \\maketitle
 """
@@ -55,7 +56,7 @@ def stop_maths():
     document += "\n" + "\\hline\n"
     first = True
     for name in mathsList:
-        document += name + " &" + " & ".join([str(maths[name][key]) for key in keys]) + "\\\\\n"
+        document += name + " &" + " & ".join([u"%.0f\euro" % maths[name][key] for key in keys]) + "\\\\\n"
         document += "\n" 
         if first:
             first = False

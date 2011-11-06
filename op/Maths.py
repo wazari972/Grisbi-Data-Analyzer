@@ -120,6 +120,6 @@ class Avg:
         
     def dump(self):
         daily = self.total/self.count
-        return {"Daily": "%.2f (%d days)" % (daily, self.count),
-                "Monthly": "%.2f" % (daily*30.5)
+        return {"Daily": daily,
+                "Monthly": daily*30.5
                 }
