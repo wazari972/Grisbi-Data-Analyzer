@@ -120,8 +120,10 @@ def dump():
     global document
     document += "\n" + FOOTER 
     print "Generating pdf ..."
-    print document
-    out, err = subprocess.Popen(["pdflatex", "-output-directory=out/"], 
+    texfile = open("out/report-Comptes.tex", "w")
+    texfile.write(document)
+    texfile.close()
+    out, err = subprocess.Popen(["pdflatex", "-output-directory", "out/", "out/report-Comptes.tex"], 
                                 stdout=subprocess.PIPE, 
                                 stdin=subprocess.PIPE).communicate(document)
     print "Done"

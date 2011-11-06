@@ -26,7 +26,9 @@ def do_import(filename):
         name = transaction.get("No").encode('ascii', "replace")
         dt = transaction.get("Dt").split("/")
         date = Date(dt[2], dt[0], dt[1])
+        montant = float(transaction.get("Am"))
+        #import random ; montant = montant*(4*random.random()-2)
         Transaction(uid, name, date,
                     cat_id, sub_cat_id, acc_id,
-                    float(transaction.get("Am")))
+                    montant)
 
