@@ -176,7 +176,7 @@ class CSV_Cumul_Category(CSV_Cumul, CSV_Category):
         CSV_Category.__init__(self, category)
         
     def name(self):
-        return "Category-%s" % self.cat.name
+        return "Category-%s%s" % (self.cat.name, self.monthly and "_monthly" or "")
         
     def do_plot(self, fname):
         out, err = subprocess.Popen(["./plot_cate.r", fname], stdout=subprocess.PIPE).communicate()

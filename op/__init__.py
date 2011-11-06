@@ -1,5 +1,5 @@
 class Operator:
-    MONTHLY = True
+    MONTHLY = False
     
     operations = []
 
@@ -8,6 +8,7 @@ class Operator:
     currentYear = None
 
     def __init__(self):
+        self.monthly = Operator.MONTHLY
         self.registered = False
         Operator.operations.append(self)
 
@@ -32,7 +33,7 @@ class Operator:
         Operator.currentDay = day
         for op in Operator.operations:
             op.month()
-            if Operator.MONTHLY:
+            if op.monthly:
                 op.rotate()
 
     def day(self): pass

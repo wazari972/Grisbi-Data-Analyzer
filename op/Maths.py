@@ -85,7 +85,7 @@ class MathsAccount(Maths):
         return self.acc is None or self.acc == transac.account
 
     def get_doers(self):
-        return (Total(self.init_value), MinMaxTotal(self.init_value))
+        return [MinMaxTotal(self.init_value)]
         
     def inverted(self):
         return False
@@ -102,30 +102,27 @@ class Total:
     
     def dump(self):
         ret = {"Total": self.total}
-        if self.init_value == 0:
-            self.total = 0
+        self.total = 0
         return ret
 
 class MinMaxTotal:
     def __init__(self, init_value=0):
         self.init_value = init_value
         self.total = init_value
-        self.mintot = None
-        self.maxtot = None
+        self.mintot = init_value
+        self.maxtot = init_value
         
     def do(self, montant):
         self.total +=  montant
-        if self.mintot > self.total or self.mintot is None:
+        if self.mintot > self.total:
             self.mintot = self.total
-        if self.maxtot < self.total or self.maxtot is None:
+        if self.maxtot < self.total:
             self.maxtot = self.total
             
     def dump(self):
-        ret = {"Mini": self.mintot, "Maxi": self.maxtot}
-        if self.init_value == 0:
-            self.total = 0
-        self.mintot = None
-        self.maxtot = None
+        ret = {"Mini": self.mintot, "Maxi": self.maxtot, "Total": self.total}
+        self.mintot = self.total
+        self.maxtot = self.total
         return ret
 
 class Max:
@@ -133,7 +130,7 @@ class Max:
         self.max = None
         
     def do(self, montant):
-        if self.max < montant or self.max is None:
+        if self.max is None or abs(self.max) < abs(montant):
             self.max = montant
 
     def dump(self):

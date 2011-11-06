@@ -45,7 +45,7 @@ def new_subsection(name):
 def add_graph(fname):
     global document
     document += "\n" + "\\begin{center}"
-    document += "\n" + "\includegraphics[width=400pt]{%s}" % fname
+    document += "\n" + "\includegraphics[width=\\textwidth]{%s}" % fname
     document += "\n" + "\\end{center}"
     document += "\n" + "\\vspace{-5em}"
     
@@ -120,7 +120,7 @@ def dump():
     global document
     document += "\n" + FOOTER 
     print "Generating pdf ..."
-    #print document
+    print document
     out, err = subprocess.Popen(["pdflatex", "-output-directory=out/"], 
                                 stdout=subprocess.PIPE, 
                                 stdin=subprocess.PIPE).communicate(document)
