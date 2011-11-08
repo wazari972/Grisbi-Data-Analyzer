@@ -17,7 +17,6 @@ for cat in Category.categories.values():
     cvs_cat_mops.append(CSV.CSV_Cumul_Category(cat))
     maths_cat_mops.append(Maths.MathsCatSubCat(cat))
     
-csvTotal_mop = CSV.CSV_Cumul_Account()
 mathsTotal_mop = Maths.MathsAccount(None)
 maths_acc_mops = []
 for acc in Account.accounts.values():
@@ -41,7 +40,6 @@ Bank.processTransactions()
 
 print "Dump account information ..."
 acc_files = csvTotal_op.dump()
-acc_files_m = csvTotal_mop.dump()
 
 Latex.new_part("Accounts")
 Latex.new_section("Total")
@@ -50,7 +48,6 @@ Latex.start_maths()
 Latex.add_maths("Total", mathsTotal_op.dump())
 Latex.stop_maths()
 
-Latex.add_graph(acc_files_m[-1])
 Latex.start_maths()
 Latex.add_maths("Total", mathsTotal_mop.dump())
 Latex.stop_maths()
@@ -64,8 +61,6 @@ for cpt in range(0, len(Account.accounts)):
     Latex.start_maths()
     Latex.add_maths(acc.name, maths_acc_ops[cpt].dump())
     Latex.stop_maths()
-    
-    Latex.add_graph(acc_files_m[cpt])
     
     Latex.start_maths()
     Latex.add_maths(acc.name, maths_acc_mops[cpt].dump())
@@ -97,7 +92,6 @@ for cpt in range(0, len(cvs_cat_ops)):
         Latex.add_maths(name, subcat_mop.dump())
     Latex.stop_maths()
     
-    Latex.add_graph(op.dump()[0])
-    Latex.add_graph(mop.dump()[0])
+    Latex.add_graph(op.dump()[0], mop.dump()[0])
 Latex.dump()
 

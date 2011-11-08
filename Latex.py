@@ -3,9 +3,10 @@ import subprocess
 HEADER = """
 \documentclass[12pt]{article}
 \usepackage[pdftex]{graphicx}
-\usepackage[top=0.5in, bottom=0.5in,left=0.5in, landscape]{geometry}
+\usepackage[top=0.4in, bottom=0.5in,left=0.5in, landscape]{geometry}
 \\title{Releve de compte}
 \date{\\today}
+\\usepackage{pdflscape}
 \\usepackage{multicol}
 \\usepackage{eurosym}
 \\begin{document}
@@ -42,12 +43,19 @@ def new_subsection(name):
         document += "\n" + "\\newpage"
     document += "\n" + "\subsection{%s}" % name  
     
-def add_graph(fname):
+def add_graph(fname1, fname2=None):
     global document
-    document += "\n" + "\\begin{center}"
-    document += "\n" + "\includegraphics[width=\\textwidth]{%s}" % fname
-    document += "\n" + "\\end{center}"
-    document += "\n" + "\\vspace{-5em}"
+
+    if fname2 != None:
+        document += "\n" + "\\begin{figure}"
+        document += "\n" + "\\centering"
+        document += "\n" + "\includegraphics[width=400px]{%s}" % fname1
+        document += "\n" + "\includegraphics[width=400px]{%s}" % fname2
+        document += "\n" + "\\end{figure}"
+    else:
+        document += "\n" + "\\begin{center}"
+        document += "\n" + "\includegraphics[width=400px]{%s}" % fname1
+        document += "\n" + "\\end{center}"
     
 maths = None
 mathsList = None
@@ -67,18 +75,18 @@ def stop_maths():
         stop_maths_single()
     else:
         stop_maths_monthly()
+        
 def stop_maths_single():
     global document, maths, mathsList
     opKeys = maths.values()[0][0].keys()
     document += "\n" + "\\begin{center}"
     document += "\n" + "\\begin{tabular}{ l %s}" % (" | l "*len(opKeys))
     
-    document += "&" + " & ".join(opKeys) + "\\\\"
+    document += "\n &" + " & ".join(opKeys) + "\\\\"
     document += "\n" + "\\hline\n"
     first = True
     for name in mathsList:
         document += name + " &" + " & ".join(["%.0f\euro" % maths[name][0][key] for key in opKeys]) + "\\\\\n"
-        document += "\n" 
         if first:
             first = False
             document += "\n\\hline\n" 
@@ -92,15 +100,18 @@ def stop_maths_monthly():
     opKeys = maths.values()[0][0].keys()
     first = True
     months = [ i for i in range(1, len(maths.values()[0])+1)]
+    
     for name in mathsList:
+        
         if first:
             first = False
-            document += "\n\paragraph{%s}~\\\\"  % name
             cat = name
         else:
-            document += "\n" + "\\vspace{-1em}"
-            document += "\n\paragraph{%s/%s}~\\\\"  % (cat, name)
-        document += "\n" + "\\begin{tabular}{ l %s}" % (" | p{1.25cm} "*len(months))
+            document += "\n" + "\\begin{center}\n"
+            document += "\n\\textbf{%s/%s}~\\\\"  % (cat, name)
+            document += "\n" + "\\end{center}\n"
+        document += "\n" + "\\begin{center}\n"
+        document += "\n" + "\\begin{tabular}{ l %s}" % ("| p{1.25cm} "*len(months))
         
         document += "&" + " & ".join([MONTHS[month-1] for month in months]) + "\\\\"
         document += "\n" + "\\hline\n"
@@ -114,7 +125,8 @@ def stop_maths_monthly():
                     document += "& %.0f" % val
             document += "\\\\\n"
         document += "\n" + "\\end{tabular}"
-        document += "\\\\\n"
+        document += "\n" + "\\end{center}"
+    document += "\n"
 
 def dump():
     global document
@@ -123,7 +135,11 @@ def dump():
     texfile = open("out/report-Comptes.tex", "w")
     texfile.write(document)
     texfile.close()
-    out, err = subprocess.Popen(["pdflatex", "-output-directory", "out/", "out/report-Comptes.tex"], 
-                                stdout=subprocess.PIPE, 
-                                stdin=subprocess.PIPE).communicate(document)
+    pdflatex = subprocess.Popen(["pdflatex", "-output-directory", "out/", "out/report-Comptes.tex"], 
+                                stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    pdflatex.communicate(document)
+    if pdflatex.returncode == 0:
+        print "PDF generated in out/report-Comptes.pdf"
+    else:
+        print "pdflatex return with error code %d" % pdflatex.returncode
     print "Done"

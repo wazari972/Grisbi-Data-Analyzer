@@ -47,24 +47,28 @@ if (length(names(category)) == 1)
     
 size <- length(category$Date)
 
-lists <- list(category[[2]])
 i <- 1
+lists <- list(category[[2]])
 names <- names(category)[[2]]
+rng <- range(category[[2]])
 if (length(names(category)) > 2) {
     for (id in 3:length(names(category))) {
-        new_list <- c()
-        for (j in 1:size) {
-            new_val <- category[[names(category)[id]]][[j]] + lists[[i]][[j]]
-            new_list <- c(new_list, new_val)
-        }
+        # don't accumulate the lists
+        #new_list <- c()
+        #for (j in 1:size) {
+        #    new_val <- category[[names(category)[id]]][[j]] + lists[[i]][[j]]
+        #    new_list <- c(new_list, new_val)
+        #}
+        #i <- i + 1
+        
+        new_list <- category[[names(category)[id]]]
+        
         lists <- c(lists, list(new_list))
-        i <- i + 1
         names <- c(names, names(category)[id])
+        rng <- range(rng, new_list)
     }
 }
-rng <- range(category[[2]])
-for (id in length(lists))
-    rng <- range(min(rng), max(rng), lists[[id]])
+
 rng <- fix_range(rng)
 
 plot.new()

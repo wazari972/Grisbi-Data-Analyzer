@@ -50,7 +50,7 @@ do_plot <- function(name, values) {
     axis(2)
     lines(seq(1,size), values, col="blue")
     plot_months(account$Date)
-    title(paste("Account", name, sep=" - "))
+    #title(paste("Account", name, sep=" - "))
     box()
 }
 
