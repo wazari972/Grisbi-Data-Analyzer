@@ -1,4 +1,5 @@
 import subprocess
+from collections import OrderedDict
 
 HEADER = """
 \documentclass[12pt]{article}
@@ -61,7 +62,7 @@ maths = None
 mathsList = None
 def start_maths():
     global document, maths, mathsList
-    maths = {}
+    maths = OrderedDict()
     mathsList = []
 
 def add_maths(name, values):
@@ -85,7 +86,7 @@ def stop_maths_single():
     document += "\n &" + " & ".join(opKeys) + "\\\\"
     document += "\n" + "\\hline\n"
     first = True
-    for name in mathsList:
+    for name in mathsList:  
         document += name + " &" + " & ".join(["%.0f\euro" % maths[name][0][key] for key in opKeys]) + "\\\\\n"
         if first:
             first = False

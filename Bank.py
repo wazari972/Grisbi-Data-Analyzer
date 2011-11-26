@@ -93,7 +93,7 @@ class Transaction:
     transactions = []
     def __init__(self, uid, name, date,
                  cat_uid, subcat_uid, acc_uid,
-                 montant):
+                 montant, internal):
         Transaction.transactions.append(self)
 
         self.montant = montant
@@ -103,7 +103,8 @@ class Transaction:
         self.cat = Category.getCat(cat_uid)
         self.subcat = self.cat.getSubCat(subcat_uid)
         self.account = Account.getAccount(acc_uid)
-
+        self.internal = bool(internal)
+        
 def processTransactions():
 	if len(Transaction.transactions) == 0:
 		return

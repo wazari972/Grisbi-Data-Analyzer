@@ -1,5 +1,6 @@
-from op import Operator
+from collections import OrderedDict
 
+from op import Operator
 from Bank import *
 
 class Maths(Operator):
@@ -28,7 +29,7 @@ class Maths(Operator):
     def dump(self, intermediate=False):
         ret = {}
         for doer in self.doers:
-            ret = dict(ret.items() + doer.dump().items())
+            ret = OrderedDict(ret.items() + doer.dump().items())
             
         self.dumps.append(ret)
         dumps = self.dumps
@@ -82,10 +83,12 @@ class MathsAccount(Maths):
         Maths.__init__(self)
 
     def accept(self, transac):
-        return self.acc is None or self.acc == transac.account
+        if transac.internal:
+            print transac
+        return not transac.internal and (self.acc is None or self.acc == transac.account)
 
     def get_doers(self):
-        return [MinMaxTotal(self.init_value)]
+        return [MinMaxTotal(self.init_value), InOut()]
         
     def inverted(self):
         return False
@@ -120,7 +123,7 @@ class MinMaxTotal:
             self.maxtot = self.total
             
     def dump(self):
-        ret = {"Mini": self.mintot, "Maxi": self.maxtot, "Total": self.total}
+        ret = OrderedDict([("Mini", self.mintot), ("Maxi", self.maxtot), ("Total", self.total)])
         self.mintot = self.total
         self.maxtot = self.total
         return ret
@@ -138,6 +141,23 @@ class Max:
         self.max = None
         return ret
 
+class InOut:
+    def __init__(self):
+        self.in_ = 0
+        self.out_ = 0
+        
+    def do(self, montant):
+        if montant > 0:
+            self.in_ +=  montant
+        else:
+            self.out_ +=  montant
+            
+    def dump(self):
+        ret = OrderedDict([("In", self.in_), ("Out", self.out_), ("Diff", self.in_+self.out_)])
+        self.in_ = 0
+        self.out_ = 0
+        return ret
+        
 class Avg:
     def __init__(self):
         self.total = 0

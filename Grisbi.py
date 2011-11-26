@@ -27,8 +27,10 @@ def do_import(filename):
         dt = transaction.get("Dt").split("/")
         date = Date(dt[2], dt[0], dt[1])
         montant = float(transaction.get("Am"))
+        
+        internal = cat_id is "0"
         #import random ; montant = montant*(4*random.random()-2)
         Transaction(uid, name, date,
                     cat_id, sub_cat_id, acc_id,
-                    montant)
+                    montant, internal)
 
