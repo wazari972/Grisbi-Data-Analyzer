@@ -83,9 +83,9 @@ class MathsAccount(Maths):
         Maths.__init__(self)
 
     def accept(self, transac):
-        if transac.internal:
-            print transac
-        return not transac.internal and (self.acc is None or self.acc == transac.account)
+        #if transac.internal:
+        #    return False
+        return self.acc is None or self.acc == transac.account
 
     def get_doers(self):
         return [MinMaxTotal(self.init_value), InOut()]

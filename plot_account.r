@@ -5,10 +5,15 @@ O_HEIGHT <- 500
 
 RANGE_INC <- 5/100
 
-PREFIX <- "out/graph-Account"
+PREFIX <- "graph-Account"
 SUFFIX <- "png"
 
-IN_FILE <- "out/data-Accounts.csv"
+IN_FILE <- "data-Accounts.csv"
+
+args <- commandArgs(trailingOnly = TRUE)
+
+IN_FILE <- args[1]
+DIR <- args[2]
 
 fix_range <- function(range) {
     length <- max(range) - min(range) 
@@ -18,7 +23,7 @@ fix_range <- function(range) {
 
 ofile_name <- function(name) {
         name <- gsub("\\.", "-", name)
-        return(paste(paste(PREFIX, name, sep="-"), SUFFIX, sep="."))
+        return(paste(DIR, paste(paste(PREFIX, name, sep="-"), SUFFIX, sep="."), sep="/"))
     }
 
 plot_months <- function(dates) {
@@ -31,7 +36,7 @@ plot_months <- function(dates) {
         }
     }    
 }
-    
+
 account <- read.csv(file=IN_FILE, head=TRUE, sep=";")
 
 if (length(names(account)) == 1)

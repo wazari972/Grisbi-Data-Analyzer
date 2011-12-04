@@ -1,10 +1,11 @@
 import lxml
 from lxml import etree
-
+import Bank
 from Bank import Account, Category, SubCategory, Transaction, Date
 
 def do_import(filename):
-    Grisbi = etree.parse(filename).getroot()
+    Bank.set_name(filename.split(".")[0])
+    Grisbi = etree.parse(Bank.IN_FOLDER + "/" + filename).getroot()
 
     for account in Grisbi.findall("Account"):
         Account(account.get("Number"), account.get("Name"), float(account.get("Initial_balance")))

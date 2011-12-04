@@ -1,3 +1,22 @@
+IN_FOLDER = "in"
+OUT_FOLDER = "out/"
+
+name = None
+def set_name(name_):
+    global name, OUT_FOLDER
+    assert name is None
+    name = name_
+    OUT_FOLDER += name
+    import os
+    try:
+        os.mkdir(OUT_FOLDER)
+    except OSError:
+        pass
+    
+def get_name():
+    global name
+    return name
+    
 class Date:
 	def __init__(self, year, month, day):
 		self.year = int(year)
@@ -49,16 +68,17 @@ class Category(UIDName):
         self.inverted = inverted
         self.subcats = {}
         self.skip = skip
-        
+
+        SubCategory("0", "Default", uid)
+            
     def addSubCat(self, subcat):
         self.subcats[subcat.uid] = subcat
 
     def getSubCat(self, uid):
-        global defaultSubCat
         try:
-            return self.subcats[uid]
-        except KeyError:
-            return defaultSubCat
+            return self.subcats[uid] 
+        except:
+            import pdb;pdb.set_trace()
 
     def getSubCats(self):
         return self.subcats.values()
@@ -69,14 +89,11 @@ class Category(UIDName):
         try:
             return Category.categories[uid]
         except KeyError:
-            global defaultCat, defaultSubCat
+            global defaultCat
             if defaultCat is None:
-                print "default", uid
                 defaultCat = Category("-1", "Default")
-                defaultSubCat = SubCategory("-1", "Default", "-1")
             return defaultCat
 defaultCat = None 
-defaultSubCat = None
 
 class SubCategory(UIDName):
     def __init__(self, uid, name, cat_uid):

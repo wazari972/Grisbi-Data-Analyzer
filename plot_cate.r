@@ -5,10 +5,8 @@ O_HEIGHT <- 500
 
 RANGE_INC <- 5/100
 
-PREFIX <- "out/graph-Category"
+PREFIX <- "graph-Category"
 SUFFIX <- "png"
-
-IN_FILE <- "out/data-Accounts.csv"
 
 args <- commandArgs(trailingOnly = TRUE)
 
@@ -30,12 +28,14 @@ plot_months <- function(dates, size) {
 }
     
 FILE <- args[1]
+DIR <- args[2]
+
 FILENAME <- lapply(strsplit(FILE, "\\."), function(x) x[1])
 CATE_NAME <- lapply(strsplit(FILENAME[[1]], "-"), function(x) x[3])
 
 ofile_name <- function(name) {
     name <- gsub("\\.", "-", name)
-    return(paste(paste(PREFIX, name, sep="-"), SUFFIX, sep="."))
+    return(paste(DIR, paste(paste(PREFIX, name, sep="-"), SUFFIX, sep="."), sep="/"))
 }
 ofile_name(CATE_NAME)
 png(ofile_name(CATE_NAME), width=O_WIDTH, height=O_HEIGHT)

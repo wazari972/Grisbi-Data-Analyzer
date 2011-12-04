@@ -74,7 +74,7 @@ class CSV(Operator):
 
     def dump(self):
         import csv
-        fname = "out/data-%s.csv" % self.name()
+        fname = Bank.OUT_FOLDER+"/data-%s.csv" % self.name()
         ofile = open(fname, "wb")
         try:
             writer = csv.writer(ofile)
@@ -139,7 +139,7 @@ class CSV_Cumul_Account(CSV_Cumul, CSV_All_Account):
             return "Accounts"
     
     def do_plot(self, fname):
-        out, err = subprocess.Popen(["./plot_account.r", fname], stdout=subprocess.PIPE).communicate()
+        out, err = subprocess.Popen(["./plot_account.r", fname, Bank.OUT_FOLDER], stdout=subprocess.PIPE).communicate()
         split = out.split("\"")
         
         return [split[i] for i in range(1, len(split), 2)]
@@ -155,7 +155,10 @@ class CSV_Category(CSV):
         return self.cat == transac.cat
 
     def getKey(self, transac):
-        return transac.subcat.uid
+        try:
+            return transac.subcat.uid
+        except:
+            import pdb;pdb.set_trace()
         
     def getKeySet(self):
         return self.cat.subcats.keys()
@@ -179,5 +182,5 @@ class CSV_Cumul_Category(CSV_Cumul, CSV_Category):
         return "Category-%s%s" % (self.cat.name, self.monthly and "_monthly" or "")
         
     def do_plot(self, fname):
-        out, err = subprocess.Popen(["./plot_cate.r", fname], stdout=subprocess.PIPE).communicate()
+        out, err = subprocess.Popen(["./plot_cate.r", fname, Bank.OUT_FOLDER], stdout=subprocess.PIPE).communicate()
         return [out.split("\"")[1]]

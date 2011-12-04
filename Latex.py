@@ -1,6 +1,8 @@
 import subprocess
 from collections import OrderedDict
 
+import Bank
+
 HEADER = """
 \documentclass[12pt]{article}
 \usepackage[pdftex]{graphicx}
@@ -133,14 +135,14 @@ def dump():
     global document
     document += "\n" + FOOTER 
     print "Generating pdf ..."
-    texfile = open("out/report-Comptes.tex", "w")
+    texfile = open(Bank.OUT_FOLDER+"/report.tex", "w")
     texfile.write(document)
     texfile.close()
-    pdflatex = subprocess.Popen(["pdflatex", "-output-directory", "out/", "out/report-Comptes.tex"], 
+    pdflatex = subprocess.Popen(["pdflatex", "-output-directory", Bank.OUT_FOLDER, "%s/report.tex" % Bank.OUT_FOLDER], 
                                 stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     pdflatex.communicate(document)
     if pdflatex.returncode == 0:
-        print "PDF generated in out/report-Comptes.pdf"
+        print "PDF generated in %s/report.pdf" % Bank.OUT_FOLDER
     else:
         print "pdflatex return with error code %d" % pdflatex.returncode
     print "Done"

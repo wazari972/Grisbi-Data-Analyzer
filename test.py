@@ -7,7 +7,7 @@ from op import Operator, Maths, CSV
 import Latex
 
 ###############################
-Grisbi.do_import("in/comptes.gsb")
+Grisbi.do_import("marine.gsb")
 ###############################
 
 Operator.MONTHLY = True
