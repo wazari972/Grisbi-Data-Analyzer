@@ -31,7 +31,7 @@ plot_months <- function(dates) {
     for (id in 2:size) {
         new_date <- dates[id]
         old_date <- dates[[id-1]]
-        if (any(grep("-1$", new_date)) && any(grep("-30$", old_date), grep("-31$", old_date))) {
+        if (any(grep("-1$", new_date)) && any(grep("-31$", old_date), grep("-30$", old_date), grep("-29$", old_date), grep("-28$", old_date))) {
             abline(v = id,  col="seagreen4",lty=2) # add vertical line at month break
         }
     }    

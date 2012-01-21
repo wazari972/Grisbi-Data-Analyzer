@@ -83,8 +83,6 @@ class MathsAccount(Maths):
         Maths.__init__(self)
 
     def accept(self, transac):
-        #if transac.internal:
-        #    return False
         return self.acc is None or self.acc == transac.account
 
     def get_doers(self):

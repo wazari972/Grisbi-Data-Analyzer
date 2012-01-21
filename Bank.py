@@ -1,3 +1,5 @@
+import calendar
+
 IN_FOLDER = "in"
 OUT_FOLDER = "out/"
 
@@ -130,18 +132,20 @@ def processTransactions():
 	currentDay = sorted_transacs[0].date.day
 	currentMonth = sorted_transacs[0].date.month
 	currentYear = sorted_transacs[0].date.year
-
-	Operator.new_year(currentYear, currentMonth, currentDay)
+	print "Start: ", (currentYear, currentMonth, currentDay)
+	
+	Operator.init_date(currentYear, currentMonth, currentDay)
+	
 	for transac in sorted_transacs:
-		while (currentDay != transac.date.day
-                    or currentMonth != transac.date.month
-                    or currentYear != transac.date.year):
-			currentDay = (currentDay + 1) % 32
-			if currentDay == 0:
-				currentDay += 1
-				currentMonth = (currentMonth + 1) % 13
-				if currentMonth == 0:
-					currentMonth += 1
+		while not (currentDay == transac.date.day
+               and currentMonth == transac.date.month
+               and currentYear == transac.date.year):
+			currentDay += 1
+			if currentDay > calendar.monthrange(currentYear, currentMonth)[1]:
+				currentDay = 1
+				currentMonth += 1
+				if currentMonth == 13:
+					currentMonth = 1
 					currentYear += 1
 					Operator.new_year(currentYear, currentMonth, currentDay)
 				else:

@@ -17,18 +17,27 @@ class Operator:
 
     def year(self): pass
     @staticmethod
+    def init_date(year, month, day):
+        Operator.currentYear = year
+        Operator.currentMonth = month
+        Operator.currentDay = day
+        for oper in Operator.operations:
+            oper.day()
+    @staticmethod
     def new_year(year, month, day):
-        #print "Year %s/%s/%s" % (year, month, day)
+        print "Year %s" % year
         Operator.currentYear = year
         Operator.currentMonth = month
         Operator.currentDay = day
         for oper in Operator.operations:
             oper.year()
-
+            if oper.monthly:
+                oper.rotate()
+        
     def month(self): pass
     @staticmethod
     def new_month(month, day):
-        #print "Month %s/%s" % (month, day)
+        print "Month %s" % month
         Operator.currentMonth = month
         Operator.currentDay = day
         for op in Operator.operations:
@@ -39,7 +48,6 @@ class Operator:
     def day(self): pass
     @staticmethod
     def new_day(day):
-        #print "Day %s" % day
         Operator.currentDay = day
         for op in Operator.operations:
             op.day()

@@ -1,4 +1,5 @@
 #! /usr/bin/python2
+import sys
 
 import Bank
 from Bank import Account, Category, SubCategory, Transaction
@@ -7,7 +8,12 @@ from op import Operator, Maths, CSV
 import Latex
 
 ###############################
-Grisbi.do_import("marine.gsb")
+print sys.argv
+try:
+    filename = sys.argv[1]
+except:
+    filename = "kevin.gsb"
+Grisbi.do_import(filename)
 ###############################
 
 Operator.MONTHLY = True

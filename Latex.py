@@ -116,12 +116,14 @@ def stop_maths_monthly():
         document += "\n" + "\\begin{center}\n"
         document += "\n" + "\\begin{tabular}{ l %s}" % ("| p{1.25cm} "*len(months))
         
-        document += "&" + " & ".join([MONTHS[month-1] for month in months]) + "\\\\"
+        document += "&" + " & ".join([MONTHS[(month-1)%12] for month in months]) + "\\\\"
         document += "\n" + "\\hline\n"
         for key in opKeys:
             document += key
             for month in months:
-                val = maths[name][month-1][key] 
+                val = maths[name][month-1][key]
+                if val is None:
+                    val = -1
                 if val == 0:
                     document += "& . "
                 else:
