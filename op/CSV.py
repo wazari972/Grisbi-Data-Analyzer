@@ -11,16 +11,16 @@ class DateValue:
 class CSV(Operator):
     uid = 1
     @staticmethod
-    def currentKey():
-        assert Operator.currentDay is not None
-        assert Operator.currentMonth is not None
-        assert Operator.currentYear is not None
+    def currentKey(ops):
+        assert ops.currentDay is not None
+        assert ops.currentMonth is not None
+        assert ops.currentYear is not None
 
-        return "%s-%s-%s" % (Operator.currentYear,
-                             Operator.currentMonth,
-                             Operator.currentDay)
-    def __init__(self):
-        Operator.__init__(self)
+        return "%s-%s-%s" % (ops.currentYear,
+                             ops.currentMonth,
+                             ops.currentDay)
+    def __init__(self, ops):
+        Operator.__init__(self, ops)
         self.transacs = []
         self.uid = CSV.uid
         self.current = None
@@ -29,7 +29,7 @@ class CSV(Operator):
     
     def process(self, transac):           
         assert self.current is not None
-        coef = self.inverted() and -1 or 1
+        coef = -1 if self.ops.inverted() else 1
         self.current.values[self.getKey(transac)] += transac.montant*coef
     
     def getKey(self, transac):
@@ -61,13 +61,13 @@ class CSV(Operator):
         else:
             previous = self.getInitValues()
             
-        self.current = DateValue(self.currentKey(), self.newDayValues(previous))
+        self.current = DateValue(self.currentKey(self.ops), self.newDayValues(previous))
     #do the same for YEAR and MONTH
     month = day
     year = day
 
     def reset(self):
-        self.current = DateValue(self.currentKey(), self.newDayValues(None))
+        self.current = DateValue(self.currentKey(self.ops), self.newDayValues(None))
     
     def name(self):
         return self.uid
@@ -108,8 +108,8 @@ class CSV_Cumul:
         return values
         
 class CSV_All_Account(CSV):
-    def __init__(self):
-        CSV.__init__(self)
+    def __init__(self, ops):
+        CSV.__init__(self, ops)
         
     def getKey(self, transac):
         return transac.account.uid
@@ -131,12 +131,12 @@ class CSV_All_Account(CSV):
 
     
 class CSV_Cumul_Account(CSV_Cumul, CSV_All_Account):
-    def __init__(self):
+    def __init__(self, ops):
         CSV_Cumul.__init__(self)
-        CSV_All_Account.__init__(self)
+        CSV_All_Account.__init__(self, ops)
     
     def name(self):
-            return "Accounts"
+        return "Accounts"
     
     def do_plot(self, fname):
         out, err = subprocess.Popen(["./plot_account.r", fname, Bank.OUT_FOLDER], stdout=subprocess.PIPE).communicate()
@@ -147,8 +147,8 @@ class CSV_Cumul_Account(CSV_Cumul, CSV_All_Account):
 
 class CSV_Category(CSV):
     
-    def __init__(self, category):
-        CSV.__init__(self)
+    def __init__(self, ops, category):
+        CSV.__init__(self, ops)
         self.cat = category
         
     def accept(self, transac):
@@ -174,9 +174,9 @@ class CSV_Category(CSV):
         self.day()
         
 class CSV_Cumul_Category(CSV_Cumul, CSV_Category):
-    def __init__(self, category):
+    def __init__(self, ops, category):
         CSV_Cumul.__init__(self)
-        CSV_Category.__init__(self, category)
+        CSV_Category.__init__(self, ops, category)
         
     def name(self):
         return "Category-%s%s" % (self.cat.name, self.monthly and "_monthly" or "")

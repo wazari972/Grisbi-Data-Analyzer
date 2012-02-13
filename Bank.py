@@ -20,14 +20,14 @@ def get_name():
     return name
     
 class Date:
-	def __init__(self, year, month, day):
-		self.year = int(year)
-		self.month = int(month)
-		self.day = int(day)
-	def __str__(self):
-		return "%s/%02d/%02d" % (self.year, self.month, self.day)
-	def __repr__(self):
-		return str(self)
+    def __init__(self, year, month, day):
+        self.year = int(year)
+        self.month = int(month)
+        self.day = int(day)
+    def __str__(self):
+        return "%s/%02d/%02d" % (self.year, self.month, self.day)
+    def __repr__(self):
+        return str(self)
 
 class UIDName:
     def __init__(self, uid, name):
@@ -124,36 +124,57 @@ class Transaction:
         self.account = Account.getAccount(acc_uid)
         self.internal = bool(internal)
         
-def processTransactions():
-	if len(Transaction.transactions) == 0:
-		return
-	from op import Operator
-	sorted_transacs = sorted(Transaction.transactions, lambda x, y : cmp(str(x.date), str(y.date)))
-	currentDay = sorted_transacs[0].date.day
-	currentMonth = sorted_transacs[0].date.month
-	currentYear = sorted_transacs[0].date.year
-	print "Start: ", (currentYear, currentMonth, currentDay)
-	
-	Operator.init_date(currentYear, currentMonth, currentDay)
-	
-	for transac in sorted_transacs:
-		while not (currentDay == transac.date.day
+def processTransactions(ops, start=None, stop=None):
+    if len(Transaction.transactions) == 0:
+        return
+    from op import Operator
+    sorted_transacs = sorted(Transaction.transactions, lambda x, y : cmp(str(x.date), str(y.date)))
+    
+    if start is None:
+        start = sorted_transacs[0].date
+    if stop is None:
+        stop = sorted_transacs[-1].date
+        
+    first = True
+    for transac in sorted_transacs:
+        if first:
+            currentDay = transac.date.day
+            currentMonth = transac.date.month
+            currentYear = transac.date.year
+            
+            if (currentYear < start.year
+             or currentYear == start.year and currentMonth < start.month
+             or currentYear == start.year and currentMonth == start.month and currentDay < start.day):
+                 #continue until we reach the start date
+                 continue
+            
+        while not (currentDay == transac.date.day
                and currentMonth == transac.date.month
                and currentYear == transac.date.year):
-			currentDay += 1
-			if currentDay > calendar.monthrange(currentYear, currentMonth)[1]:
-				currentDay = 1
-				currentMonth += 1
-				if currentMonth == 13:
-					currentMonth = 1
-					currentYear += 1
-					Operator.new_year(currentYear, currentMonth, currentDay)
-				else:
-					Operator.new_month(currentMonth, currentDay)
-			else:
-				Operator.new_day(currentDay)
-		Operator.newTransaction(transac)
-	pass
+            currentDay += 1
+            if currentDay > calendar.monthrange(currentYear, currentMonth)[1]:
+                currentDay = 1
+                currentMonth += 1
+                if currentMonth == 13:
+                    currentMonth = 1
+                    currentYear += 1
+                    ops.new_year(currentYear, currentMonth, currentDay)
+                else:
+                    ops.new_month(currentMonth, currentDay)
+            else:
+                ops.new_day(currentDay)
+                
+        if first:
+            print "Start: ", (currentYear, currentMonth, currentDay)
+            ops.init_date(currentYear, currentMonth, currentDay)
+            first = False
+            
+        ops.newTransaction(transac)
+        if (currentYear > stop.year
+         or currentYear == stop.year and currentMonth > stop.month
+         or currentYear == stop.year and currentMonth == stop.month and currentDay > stop.day):
+            #break if we're after the stop date
+            break
 
 def printOperationResults():
     

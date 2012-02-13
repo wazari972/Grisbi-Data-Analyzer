@@ -4,7 +4,7 @@ import sys
 import Bank
 from Bank import Account, Category, SubCategory, Transaction
 import Grisbi
-from op import Operator, Maths, CSV
+from op import Operators, Operator, Maths, CSV
 import Latex
 
 ###############################
@@ -16,33 +16,37 @@ except:
 Grisbi.do_import(filename)
 ###############################
 
-Operator.MONTHLY = True
+ops = Operators()
+
+ops.MONTHLY = True
 cvs_cat_mops = []
 maths_cat_mops = []
 for cat in Category.categories.values():
-    cvs_cat_mops.append(CSV.CSV_Cumul_Category(cat))
-    maths_cat_mops.append(Maths.MathsCatSubCat(cat))
+    cvs_cat_mops.append(CSV.CSV_Cumul_Category(ops, cat))
+    maths_cat_mops.append(Maths.MathsCatSubCat(ops, cat))
     
-mathsTotal_mop = Maths.MathsAccount(None)
+mathsTotal_mop = Maths.MathsAccount(ops, None)
 maths_acc_mops = []
 for acc in Account.accounts.values():
-    maths_acc_mops.append(Maths.MathsAccount(acc))
+    maths_acc_mops.append(Maths.MathsAccount(ops, acc))
     
-Operator.MONTHLY = False
+ops.MONTHLY = False
 cvs_cat_ops = []
 maths_cat_ops = []
 for cat in Category.categories.values():
-    cvs_cat_ops.append(CSV.CSV_Cumul_Category(cat))
-    maths_cat_ops.append(Maths.MathsCatSubCat(cat))
+    cvs_cat_ops.append(CSV.CSV_Cumul_Category(ops, cat))
+    maths_cat_ops.append(Maths.MathsCatSubCat(ops, cat))
         
-csvTotal_op = CSV.CSV_Cumul_Account()
-mathsTotal_op = Maths.MathsAccount(None)
+csvTotal_op = CSV.CSV_Cumul_Account(ops)
+mathsTotal_op = Maths.MathsAccount(ops, None)
 maths_acc_ops = []
 for acc in Account.accounts.values():
-    maths_acc_ops.append(Maths.MathsAccount(acc))
+    maths_acc_ops.append(Maths.MathsAccount(ops, acc))
     
 print "Process the transactions"
-Bank.processTransactions()
+Bank.processTransactions(ops,
+                         start=Bank.Date(2011, 8, 1), 
+                         stop=Bank.Date(2011, 10, 1))
 
 print "Dump account information ..."
 acc_files = csvTotal_op.dump()

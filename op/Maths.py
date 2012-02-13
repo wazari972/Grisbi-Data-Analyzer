@@ -4,9 +4,9 @@ from op import Operator
 from Bank import *
 
 class Maths(Operator):
-    def __init__(self):
+    def __init__(self, ops):
         global Do_Maths
-        Operator.__init__(self)
+        Operator.__init__(self, ops)
         self.doers = []
         
         for doer in self.get_doers():
@@ -47,13 +47,13 @@ class Maths(Operator):
 
         
 class MathsCatSubCat(Maths):
-    def __init__(self, cat):
-        Maths.__init__(self)
+    def __init__(self, ops, cat):
+        Maths.__init__(self, ops)
         self.cat = cat
         self.do = True
         
         if isinstance(cat, Category):
-            self.subcats = [MathsCatSubCat(subcat) for subcat in cat.subcats.values()]
+            self.subcats = [MathsCatSubCat(ops, subcat) for subcat in cat.subcats.values()]
         else:
             assert isinstance(cat, SubCategory)
             
@@ -64,7 +64,7 @@ class MathsCatSubCat(Maths):
             return self.cat == transac.subcat
             
     def get_doers(self):
-        if Operator.MONTHLY:
+        if self.ops.MONTHLY:
             return (Max(), Total())
         else:
             return (Max(), Total(), Avg())
@@ -72,7 +72,7 @@ class MathsCatSubCat(Maths):
         return self.cat.inverted
 
 class MathsAccount(Maths):
-    def __init__(self, account):
+    def __init__(self, ops, account):
         self.acc = account
         if account is None:
             self.init_value = 0
@@ -80,7 +80,7 @@ class MathsAccount(Maths):
                 self.init_value += acc.init_value
         else:
             self.init_value = account.init_value
-        Maths.__init__(self)
+        Maths.__init__(self, ops)
 
     def accept(self, transac):
         return self.acc is None or self.acc == transac.account
