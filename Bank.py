@@ -74,7 +74,7 @@ class Category(UIDName):
         SubCategory("0", "Default", uid)
             
     def addSubCat(self, subcat):
-        self.subcats[subcat.uid] = subcat
+        self.subcats["%s.%s" % (self.uid, subcat.uid)] = subcat
 
     def getSubCat(self, uid):
         try:
@@ -98,9 +98,10 @@ class Category(UIDName):
 defaultCat = None 
 
 class SubCategory(UIDName):
+    subcategories = {}
     def __init__(self, uid, name, cat_uid):
         UIDName.__init__(self, uid, name)
-
+        SubCategory.subcategories["%s.%s" % (cat_uid, uid)] = self
         self.cat = Category.getCat(cat_uid)
         self.cat.addSubCat(self)
         self.inverted = self.cat.inverted
@@ -165,7 +166,7 @@ def processTransactions(ops, start=None, stop=None):
                 ops.new_day(currentDay)
                 
         if first:
-            print "Start: ", (currentYear, currentMonth, currentDay)
+            #print "Start: ", (currentYear, currentMonth, currentDay)
             ops.init_date(currentYear, currentMonth, currentDay)
             first = False
             

@@ -29,7 +29,7 @@ class CSV(Operator):
     
     def process(self, transac):           
         assert self.current is not None
-        coef = -1 if self.ops.inverted() else 1
+        coef = -1 if self.inverted() else 1
         self.current.values[self.getKey(transac)] += transac.montant*coef
     
     def getKey(self, transac):
@@ -93,7 +93,9 @@ class CSV(Operator):
             return self.do_plot(fname)
         finally:
             ofile.close()
-
+            
+    def inverted(self):
+        return False
 class CSV_Cumul:
     def __init__(self):
         pass
@@ -106,6 +108,30 @@ class CSV_Cumul:
             else:
                 values[key] = previousValues[key]
         return values
+
+class CSV_Accounts(CSV):
+    def __init__(self, ops, accounts):
+        CSV.__init__(self, ops)
+        self.accounts = accounts
+        
+    def getKey(self, transac):
+        return "Key" #transac.account.uid
+        
+    def getKeySet(self):
+        return ["Key"] #[acc.uid for acc in self.accounts]
+     
+    def getNameSet(self):            
+        return ["Accounts"] #[acc.name for acc in self.accounts]
+    
+    def getInitValues(self):
+        return {"Key":0}
+        values = {}
+        for acc in self.accounts:
+            values[acc.uid] = acc.init_value
+        return values
+    
+    def accept(self, transac):
+        return transac.account in self.accounts
         
 class CSV_All_Account(CSV):
     def __init__(self, ops):
@@ -143,6 +169,20 @@ class CSV_Cumul_Account(CSV_Cumul, CSV_All_Account):
         split = out.split("\"")
         
         return [split[i] for i in range(1, len(split), 2)]
+
+class CSV_Cumul_Accounts(CSV_Cumul, CSV_Accounts):
+    def __init__(self, ops, accounts):
+        CSV_Cumul.__init__(self)
+        CSV_Accounts.__init__(self, ops, accounts)
+    
+    def name(self):
+        return "Accounts"
+    
+    def do_plot(self, fname):
+        out, err = subprocess.Popen(["./plot_account.r", fname, Bank.OUT_FOLDER], stdout=subprocess.PIPE).communicate()
+        split = out.split("\"")
+        
+        return [split[i] for i in range(1, len(split), 2)]
 ##########################################
 
 class CSV_Category(CSV):
@@ -155,10 +195,8 @@ class CSV_Category(CSV):
         return self.cat == transac.cat
 
     def getKey(self, transac):
-        try:
-            return transac.subcat.uid
-        except:
-            import pdb;pdb.set_trace()
+        return "%s.%s" % (transac.subcat.cat.uid, transac.subcat.uid)
+
         
     def getKeySet(self):
         return self.cat.subcats.keys()
@@ -172,6 +210,44 @@ class CSV_Category(CSV):
     def rotate(self):
         self.reset()
         self.day()
+        
+        
+class CSV_SubCategories(CSV):
+    def __init__(self, ops, subcategories, invert=False):
+        CSV.__init__(self, ops)
+        self.subcategories = subcategories
+        self.invert = invert
+        
+    def accept(self, transac):
+        return transac.subcat in self.subcategories
+
+    def getKey(self, transac):
+        return transac.subcat.uid
+        
+    def getKeySet(self):
+        return [subcat.uid for subcat in self.subcategories]
+            
+    def getNameSet(self):            
+        return [subcat.name for subcat in self.subcategories]
+        
+    def inverted(self):
+        return self.invert
+        
+    def rotate(self):
+        self.reset()
+        self.day()
+
+class CSV_Cumul_SubCategories(CSV_Cumul, CSV_SubCategories):
+    def __init__(self, ops, subcategories, invert=False):
+        CSV_Cumul.__init__(self)
+        CSV_SubCategories.__init__(self, ops, subcategories, invert)
+        
+    def name(self):
+        return "Category-%s%s" % ("-".join([subcat.name for subcat in self.subcategories]), self.monthly and "_monthly" or "")
+        
+    def do_plot(self, fname):
+        out, err = subprocess.Popen(["./plot_cate.r", fname, Bank.OUT_FOLDER], stdout=subprocess.PIPE).communicate()
+        return [out.split("\"")[1]]
         
 class CSV_Cumul_Category(CSV_Cumul, CSV_Category):
     def __init__(self, ops, category):

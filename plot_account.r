@@ -71,5 +71,5 @@ for (id in 2:length(names(account))) {
     }
     tot_values <- new_list
 }
-
-do_plot("Total", tot_values)
+if (length(names(account)) != 2)
+    do_plot("Total", tot_values)

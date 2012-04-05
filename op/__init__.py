@@ -15,7 +15,7 @@ class Operators:
             oper.day()
     
     def new_year(self, year, month, day):
-        print "Year %s" % year
+        #print "Year %s" % year
         self.currentYear = year
         self.currentMonth = month
         self.currentDay = day
@@ -25,7 +25,7 @@ class Operators:
                 oper.rotate()
 
     def new_month(self, month, day):
-        print "Month %s" % month
+        #print "Month %s" % month
         self.currentMonth = month
         self.currentDay = day
         for op in self.operations:
@@ -37,9 +37,6 @@ class Operators:
         self.currentDay = day
         for op in self.operations:
             op.day()
-   
-    def inverted(self):
-       return False
     
     def newTransaction(self, transac):
         for op in self.operations:

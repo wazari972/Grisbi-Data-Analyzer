@@ -44,7 +44,24 @@ class Maths(Operator):
         self.dump(intermediate=True)
 ###########################################
 
-
+class MathsSubCats(Maths):
+    def __init__(self, ops, subcats, invert=False):
+        Maths.__init__(self, ops)
+        self.do = True
+        self.subcats = subcats
+        self.invert = invert
+        
+    def accept(self, transac):
+        return transac.subcat in self.subcats
+            
+    def get_doers(self):
+        if self.ops.MONTHLY:
+            return (Max(), Total())
+        else:
+            return (Max(), Total(), Avg())
+            
+    def inverted(self):
+        return self.invert
         
 class MathsCatSubCat(Maths):
     def __init__(self, ops, cat):
@@ -71,6 +88,24 @@ class MathsCatSubCat(Maths):
     def inverted(self):
         return self.cat.inverted
 
+class MathsAccounts(Maths):
+    def __init__(self, ops, accounts):
+        self.accounts = accounts
+        self.init_val = 0
+        for acc in accounts:
+            self.init_val += acc.init_value
+        self.empty = len(accounts) == 0
+        Maths.__init__(self, ops)
+        
+    def accept(self, transac):
+        return self.empty or transac.account in self.accounts
+
+    def get_doers(self):
+        return [MinMaxTotal(self.init_val), InOut()]
+        
+    def inverted(self):
+        return False
+        
 class MathsAccount(Maths):
     def __init__(self, ops, account):
         self.acc = account

@@ -20,7 +20,7 @@ def do_import(filename):
 
     for transaction in Grisbi.findall("Transaction"):
         cat_id = transaction.get("Ca")
-        sub_cat_id = transaction.get("Sca")
+        sub_cat_id = "%s.%s" % (cat_id, transaction.get("Sca"))
         acc_id = transaction.get("Ac")
         
         uid = transaction.get("Nb")
