@@ -1,6 +1,7 @@
 from op import Operator
 import subprocess
 import Bank
+from collections import OrderedDict
 
 class DateValue:
     def __init__(self, date, values):
@@ -72,6 +73,16 @@ class CSV(Operator):
     def name(self):
         return self.uid
 
+        
+    def raw(self):
+        data = OrderedDict()
+        for dateValue in self.transacs:
+            dct = {}
+            data[dateValue.date] = dct
+            for key in self.getKeySet():
+                dct[key] = dateValue.values[key]
+        return data
+        
     def dump(self):
         import csv
         fname = Bank.OUT_FOLDER+"/data-%s.csv" % self.name()

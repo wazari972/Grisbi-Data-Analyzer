@@ -60,6 +60,7 @@ class Operator:
     def month(self): pass
     def day(self): pass
     
+    def raw(self): pass
     def dump(self): pass
     
     def register(self):
