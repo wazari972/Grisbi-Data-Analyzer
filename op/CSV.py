@@ -126,16 +126,15 @@ class CSV_Accounts(CSV):
         self.accounts = accounts
         
     def getKey(self, transac):
-        return "Key" #transac.account.uid
+        return transac.account.uid
         
     def getKeySet(self):
-        return ["Key"] #[acc.uid for acc in self.accounts]
+        return [acc.uid for acc in self.accounts]
      
     def getNameSet(self):            
-        return ["Accounts"] #[acc.name for acc in self.accounts]
+        return [acc.name for acc in self.accounts]
     
     def getInitValues(self):
-        return {"Key":0}
         values = {}
         for acc in self.accounts:
             values[acc.uid] = acc.init_value
@@ -233,10 +232,10 @@ class CSV_SubCategories(CSV):
         return transac.subcat in self.subcategories
 
     def getKey(self, transac):
-        return transac.subcat.uid
+        return "%s.%s" %(transac.subcat.cat.uid, transac.subcat.uid) 
         
     def getKeySet(self):
-        return [subcat.uid for subcat in self.subcategories]
+        return ["%s.%s" %(subcat.cat.uid, subcat.uid) for subcat in self.subcategories]
             
     def getNameSet(self):            
         return [subcat.name for subcat in self.subcategories]

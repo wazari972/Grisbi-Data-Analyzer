@@ -67,7 +67,7 @@ class GrisbiDataProvider:
         dct = OrderedDict()
         for key, cat in Category.categories.items():
             #print "%s --> %s" % (key, cat.name)
-            dct[key] = cat.name
+            #dct[key] = cat.name
             for sub_key, sub_cat in cat.subcats.items():
                 #print "\t%s --> %s" % (sub_key, sub_cat.name)
                 dct[sub_key] = "%s > %s" % (cat.name, sub_cat.name)
@@ -79,5 +79,4 @@ class GrisbiDataProvider:
         
         rq = GraphRequest(monthly, startD, stopD, inverted=inverted, subcategories=subcategories, accounts=accounts)
         
-        data = processRequest(rq)
-        return [dct.values()[0] for dct in data.values() if len(dct.values()) != 0]
+        return processRequest(rq)

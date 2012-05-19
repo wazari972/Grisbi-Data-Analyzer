@@ -26,7 +26,6 @@ class AppForm(QMainWindow):
             toto = self.startD
             toto = self.stopD
         except:
-            print "init ##############"
             self.startD = None
             self.stopD = None
         
@@ -46,12 +45,6 @@ class AppForm(QMainWindow):
         """
         QMessageBox.about(self, "About the plotter", msg.strip())
     
-    def on_pick(self, event):
-        box_points = event.artist.get_bbox().get_points()
-        msg = "You've clicked on a bar with coords:\n %s" % box_points
-        
-        QMessageBox.information(self, "Click!", msg)
-    
     def set_startD(self, minus_one=False):
         date = self.cal.selectedDate()
         
@@ -69,35 +62,92 @@ class AppForm(QMainWindow):
     def change_AccCat(self):
         self.listAcc.setDisabled(not self.radioAccount.isChecked())
         self.listCat.setDisabled(self.radioAccount.isChecked())
+        
     def on_draw(self):
         """ Redraws the figure
         """
 
-        # clear the axes and redraw the plot anew
-        #
-        self.axes.clear()        
+        legend = self.legend_cb.isChecked()
         inverted = self.invert_cb.isChecked()
         monthly = self.month_cb.isChecked()
         
-        accounts = None
-        subcategories = None
         if self.radioAccount.isChecked():
-            accounts = [str(item.data(Qt.UserRole).toPyObject()) for item in self.listAcc.selectedItems()]
+            fromList = self.listAcc
         else:
-            subcategories = [str(item.data(Qt.UserRole).toPyObject()) for item in self.listCat.selectedItems()]
+            fromList = self.listCat
         
+        
+        selected = {}
+        for item in fromList.selectedItems():
+            name, uid = item.data(Qt.UserRole).toPyObject().items()[0]
+            selected[str(uid)] = str(name)
+        
+        if self.radioAccount.isChecked():
+            subcategories = None
+            accounts = selected.keys()
+        else:
+            accounts = None
+            subcategories = selected.keys()
+        
+        print "Get the data"
         data = self.src.get_data(inverted, monthly, self.startD, self.stopD, subcategories=subcategories, accounts=accounts)
-        x = range(len(data))
-        self.axes.bar(
-            left=x, 
-            height=data, 
-            width=1, 
-            align='center', 
-            alpha=0.44,
-            picker=5)
+        print "------------"
+        gtype = str(self.listGType.selectedItems()[0].data(Qt.UserRole).toPyObject())
         
+        # clear the axes and redraw the plot anew
+        #
+        self.axes.clear()        
+        width = 1.0/(len(selected.values())+1)
+        
+        i = 0
+        plots = []
+        previous = None
+        bottom = None
+        
+        if "sum" in gtype:
+            width = 1
+        
+        left = range(len(data.values()))
+        colors = get_next_color()
+        for key in selected.keys():
+            print "Plot %s" % selected[key]
+            current = [dct[key] for dct in data.values() if len(dct.values()) != 0]
+            if "hist" in gtype:
+                if "sum" in gtype:
+                    if previous is None:
+                        previous = current
+                    else:
+                        bottom = [p for p in previous]
+                        previous = [k+j for k, j in zip(previous, current)]
+                else:
+                    left = [x+(i*width) for x in range(len(current))]
+                
+                plot = self.axes.bar(
+                    left=left,
+                    height=current, 
+                    width=width, 
+                    bottom=bottom,
+                    alpha=0.7,
+                    color=colors.next(),
+                    picker=5)
+            elif "line" in gtype:
+                plot = self.axes.plot(left, current)
+            else:
+                print "no mode selected ... "+gtype
+                plot = None
+            
+            plots.append(plot)
+            self.canvas.draw()
+            i += 1
+            
+        if legend:
+            if "line" in gtype:
+                self.axes.legend([entry for entry in selected.values()])
+            else:
+                self.axes.legend(plots, [entry for entry in selected.values()])
+            
         self.canvas.draw()
-    
+        print "============"
     def create_main_frame(self):
         self.main_frame = QWidget()
         
@@ -116,10 +166,6 @@ class AppForm(QMainWindow):
         #
         self.axes = self.fig.add_subplot(111)
         
-        # Bind the 'pick' event for clicking on one of the bars
-        #
-        self.canvas.mpl_connect('pick_event', self.on_pick)
-        
         # Create the navigation toolbar, tied to the canvas
         #
         self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
@@ -128,6 +174,10 @@ class AppForm(QMainWindow):
         #         
         self.draw_button = QPushButton("&Draw")
         self.connect(self.draw_button, SIGNAL('clicked()'), self.on_draw)
+        
+        self.legend_cb = QCheckBox("Legend ?")
+        self.legend_cb.setChecked(False)
+        self.connect(self.legend_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
         self.invert_cb = QCheckBox("Inverted ?")
         self.invert_cb.setChecked(False)
@@ -155,22 +205,30 @@ class AppForm(QMainWindow):
         self.set_stopD()
         self.stopD_lbl.move(130, 260)
         
+        def add_item_to_list(lst, name, data):
+            item = QListWidgetItem(name)
+            item.setData(Qt.UserRole, data)
+            lst.addItem(item)
+            return item
+        
+        self.listGType = QListWidget()
+        first = add_item_to_list(self.listGType, "Line", "line")
+        self.listGType.setCurrentItem(first)
+        add_item_to_list(self.listGType, "Histogram", "hist")
+        add_item_to_list(self.listGType, "Accumulation histogram", "hist sum")
+        
         self.listCat = QListWidget()
-        self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection) 
+        self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection)
         
         for cat, name in self.src.get_categories().items():
-            item = QListWidgetItem(name)
-            item.setData(Qt.UserRole, cat) 
-            self.listCat.addItem(item)
+            add_item_to_list(self.listCat, name, {name:cat})
             
         self.listAcc = QListWidget()
         self.listAcc.setSelectionMode(QAbstractItemView.ExtendedSelection) 
         self.listAcc.setDisabled(True)
         
         for acc, name in self.src.get_accounts().items():
-            item = QListWidgetItem(name)
-            item.setData(Qt.UserRole, acc) 
-            self.listAcc.addItem(item)
+            add_item_to_list(self.listAcc, name, {name:acc})
             
         self.radioCategory = QRadioButton("Categories")
         self.radioCategory.setChecked(True)
@@ -194,9 +252,11 @@ class AppForm(QMainWindow):
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.mpl_toolbar)
         
-        add_box([self.month_cb, self.invert_cb])
+        add_box([self.month_cb, self.invert_cb, self.legend_cb])
+        add_box([self.listGType])
         add_box([self.startD_lbl, self.startD_button, self.cal,  self.stopD_button, self.stopD_lbl])
         add_box([self.radioCategory, self.radioAccount])
+        
         add_box([self.listCat, self.listAcc])
         add_box([self.draw_button])
         
@@ -250,6 +310,14 @@ class AppForm(QMainWindow):
             action.setCheckable(True)
         #return action
 
+def get_next_color():
+    colors = ["blue", "green", "red", "cyan", "magenta", "yellow", "black"]
+    i = 0
+    while True:
+        yield colors[i % len(colors)]
+        i += 1
+    
+    
 
 def main():
     app = QApplication(sys.argv)
@@ -260,4 +328,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
