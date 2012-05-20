@@ -63,8 +63,23 @@ class AppForm(QMainWindow):
         
         self.startD_lbl.setText(date.toString())
         self.startD = (date.year(), date.month(), date.day())
+    
+    def change_GType(self):
+        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
         
-    def set_stopD(self):     
+        isPie = "pie" in gtype
+        
+        if isPie:
+            self.radioCategory.setChecked(True)
+            self.change_AccCat()
+            
+        self.radioAccount.setDisabled(isPie)
+        self.month_cb.setDisabled(isPie)
+        self.legend_cb.setDisabled(isPie)
+        self.accu_cb.setDisabled(isPie)
+        self.fill_cb.setDisabled(isPie)
+        
+    def set_stopD(self):
         date = self.cal.selectedDate()
         self.stopD_lbl.setText(date.toString())
         self.stopD = (date.year(), date.month(), date.day())
@@ -79,18 +94,21 @@ class AppForm(QMainWindow):
     def on_draw(self):
         """ Redraws the figure
         """
-
+        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
+        
         legend = self.legend_cb.isChecked()
         inverted = self.invert_cb.isChecked()
         monthly = self.month_cb.isChecked()
         accu = self.accu_cb.isChecked()
         fill = self.fill_cb.isChecked()
         
+        if "pie" in gtype:
+            monthly = False
+        
         if self.radioAccount.isChecked():
             fromList = self.listAcc
         else:
             fromList = self.listCat
-        
         
         selected = {}
         for item in fromList.selectedItems():
@@ -104,17 +122,22 @@ class AppForm(QMainWindow):
             accounts = None
             subcategories = selected.keys()
         
+        labels = [entry for entry in selected.values()]
+        
         print "Get the data"
         data = self.src.get_data(inverted, monthly, self.startD, self.stopD, subcategories=subcategories, accounts=accounts)
         print "------------"
         
-        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
+        
         # clear the axes and redraw the plot anew
         #
         self.axes.clear()        
         
         plots = []
         previous = 0
+        
+        if "pie" in gtype:
+            pie_values = []
         
         left = range(len(data.values()))
         colors = get_next_color()
@@ -134,22 +157,27 @@ class AppForm(QMainWindow):
                 
                 if accu:
                     previous = actual_current
-                
+            elif "pie" in gtype:
+                plot = pie_values.append(current[-1])
             else:
                 print "no mode selected ... "+gtype
                 plot = None
             
             plots.append(plot)
             self.canvas.draw()
+        
+        if "pie" in gtype:
+            self.axes.pie(pie_values, labels=labels, autopct='%1.0f%%')
             
-        if legend:
+        if legend and not "pie" in gtype:
             if "line" in gtype:
-                self.axes.legend([entry for entry in selected.values()])
+                self.axes.legend(labels)
             else:
-                self.axes.legend(plots, [entry for entry in selected.values()])
+                self.axes.legend(plots, labels)
             
         self.canvas.draw()
         print "============"
+        
     def create_main_frame(self):
         self.main_frame = QWidget()
         
@@ -232,6 +260,8 @@ class AppForm(QMainWindow):
         
         self.cboxGType = QComboBox()
         add_item_to_cbox(self.cboxGType, "Line", "line")
+        add_item_to_cbox(self.cboxGType, "Pie", "pie")
+        self.connect(self.cboxGType, SIGNAL('currentIndexChanged(QString)'), self.change_GType)
         
         self.listCat = QListWidget()
         self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection)

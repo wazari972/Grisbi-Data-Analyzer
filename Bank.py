@@ -70,8 +70,6 @@ class Category(UIDName):
         self.inverted = inverted
         self.subcats = {}
         self.skip = skip
-
-        SubCategory("0", "Default", uid)
             
     def addSubCat(self, subcat):
         self.subcats["%s.%s" % (self.uid, subcat.uid)] = subcat
@@ -80,7 +78,7 @@ class Category(UIDName):
         try:
             return self.subcats[uid] 
         except:
-            import pdb;pdb.set_trace()
+            return SubCategory("0", "Default", uid)
 
     def getSubCats(self):
         return self.subcats.values()
