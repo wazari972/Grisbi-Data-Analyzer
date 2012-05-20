@@ -45,6 +45,16 @@ class AppForm(QMainWindow):
         """
         QMessageBox.about(self, "About the plotter", msg.strip())
     
+    def set_showCal(self, val=None):
+        
+        enable = self.showCal_cb.isChecked() if val is None else val
+        
+        self.startD_button.setDisabled(not enable)
+        self.stopD_button.setDisabled(not enable)
+        self.cal.setVisible(enable)
+        
+        self.showCal_cb.setText("Change" if not enable else "")            
+    
     def set_startD(self, minus_one=False):
         date = self.cal.selectedDate()
         
@@ -63,6 +73,9 @@ class AppForm(QMainWindow):
         self.listAcc.setDisabled(not self.radioAccount.isChecked())
         self.listCat.setDisabled(self.radioAccount.isChecked())
         
+        self.month_cb.setDisabled(self.radioAccount.isChecked())
+        self.invert_cb.setDisabled(self.radioAccount.isChecked())
+        
     def on_draw(self):
         """ Redraws the figure
         """
@@ -70,6 +83,8 @@ class AppForm(QMainWindow):
         legend = self.legend_cb.isChecked()
         inverted = self.invert_cb.isChecked()
         monthly = self.month_cb.isChecked()
+        accu = self.accu_cb.isChecked()
+        fill = self.fill_cb.isChecked()
         
         if self.radioAccount.isChecked():
             fromList = self.listAcc
@@ -92,53 +107,40 @@ class AppForm(QMainWindow):
         print "Get the data"
         data = self.src.get_data(inverted, monthly, self.startD, self.stopD, subcategories=subcategories, accounts=accounts)
         print "------------"
-        gtype = str(self.listGType.selectedItems()[0].data(Qt.UserRole).toPyObject())
         
+        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
         # clear the axes and redraw the plot anew
         #
         self.axes.clear()        
-        width = 1.0/(len(selected.values())+1)
         
-        i = 0
         plots = []
-        previous = None
-        bottom = None
-        
-        if "sum" in gtype:
-            width = 1
+        previous = 0
         
         left = range(len(data.values()))
         colors = get_next_color()
         for key in selected.keys():
             print "Plot %s" % selected[key]
             current = [dct[key] for dct in data.values() if len(dct.values()) != 0]
-            if "hist" in gtype:
-                if "sum" in gtype:
-                    if previous is None:
-                        previous = current
-                    else:
-                        bottom = [p for p in previous]
-                        previous = [k+j for k, j in zip(previous, current)]
-                else:
-                    left = [x+(i*width) for x in range(len(current))]
+            if "line" in gtype:
+                color = colors.next()
+                actual_current = current
                 
-                plot = self.axes.bar(
-                    left=left,
-                    height=current, 
-                    width=width, 
-                    bottom=bottom,
-                    alpha=0.7,
-                    color=colors.next(),
-                    picker=5)
-            elif "line" in gtype:
-                plot = self.axes.plot(left, current)
+                if accu and previous != 0:
+                        actual_current = [k+j for k, j in zip(previous, current)]
+                if fill:
+                    self.axes.fill_between(left, previous, actual_current, color=color)
+                
+                plot = self.axes.plot(left, actual_current, color=color)
+                
+                if accu:
+                    previous = actual_current
+                
             else:
                 print "no mode selected ... "+gtype
                 plot = None
             
             plots.append(plot)
             self.canvas.draw()
-            i += 1
             
         if legend:
             if "line" in gtype:
@@ -175,6 +177,14 @@ class AppForm(QMainWindow):
         self.draw_button = QPushButton("&Draw")
         self.connect(self.draw_button, SIGNAL('clicked()'), self.on_draw)
         
+        self.accu_cb = QCheckBox("Accumulate ?")
+        self.accu_cb.setChecked(False)
+        self.connect(self.accu_cb, SIGNAL('stateChanged(int)'), self.on_draw)
+        
+        self.fill_cb = QCheckBox("Fill ?")
+        self.fill_cb.setChecked(False)
+        self.connect(self.fill_cb, SIGNAL('stateChanged(int)'), self.on_draw)
+        
         self.legend_cb = QCheckBox("Legend ?")
         self.legend_cb.setChecked(False)
         self.connect(self.legend_cb, SIGNAL('stateChanged(int)'), self.on_draw)
@@ -191,6 +201,10 @@ class AppForm(QMainWindow):
         self.cal.setGridVisible(True)
         self.cal.move(20, 20)
         
+        self.showCal_cb = QCheckBox("")
+        self.showCal_cb.setChecked(False)
+        self.connect(self.showCal_cb, SIGNAL('stateChanged(int)'), self.set_showCal)
+        
         self.startD_button = QPushButton("&Start date")
         self.connect(self.startD_button, SIGNAL('clicked()'), self.set_startD)
         self.startD_lbl = QLabel(self)
@@ -205,17 +219,19 @@ class AppForm(QMainWindow):
         self.set_stopD()
         self.stopD_lbl.move(130, 260)
         
+        self.set_showCal(False)
+        
+        def add_item_to_cbox(cbox, name, data):
+            cbox.addItem(name, QVariant(data))
+        
         def add_item_to_list(lst, name, data):
             item = QListWidgetItem(name)
             item.setData(Qt.UserRole, data)
             lst.addItem(item)
             return item
         
-        self.listGType = QListWidget()
-        first = add_item_to_list(self.listGType, "Line", "line")
-        self.listGType.setCurrentItem(first)
-        add_item_to_list(self.listGType, "Histogram", "hist")
-        add_item_to_list(self.listGType, "Accumulation histogram", "hist sum")
+        self.cboxGType = QComboBox()
+        add_item_to_cbox(self.cboxGType, "Line", "line")
         
         self.listCat = QListWidget()
         self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -253,10 +269,10 @@ class AppForm(QMainWindow):
         vbox.addWidget(self.mpl_toolbar)
         
         add_box([self.month_cb, self.invert_cb, self.legend_cb])
-        add_box([self.listGType])
-        add_box([self.startD_lbl, self.startD_button, self.cal,  self.stopD_button, self.stopD_lbl])
+        add_box([self.cboxGType])
+        add_box([self.accu_cb, self.fill_cb])
+        add_box([self.showCal_cb, self.startD_lbl, self.startD_button, self.cal,  self.stopD_button, self.stopD_lbl])
         add_box([self.radioCategory, self.radioAccount])
-        
         add_box([self.listCat, self.listAcc])
         add_box([self.draw_button])
         
