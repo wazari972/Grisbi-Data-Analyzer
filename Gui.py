@@ -2,11 +2,14 @@ import sys, os, random
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+import datetime
+
 import matplotlib
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 from matplotlib.figure import Figure
-
+from matplotlib.collections import PolyCollection
+from matplotlib.collections import LineCollection
 
 from GuiGrisbi import GrisbiDataProvider
 
@@ -68,17 +71,29 @@ class AppForm(QMainWindow):
         gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
         
         isPie = "pie" in gtype
+        isLine = "line" in gtype
         
-        if isPie:
-            self.radioCategory.setChecked(True)
-            self.change_AccCat()
+        is3d = "3d" in gtype
+        
+        if isPie or isLine:
+            if isPie:
+                self.radioCategory.setChecked(True)
+                self.change_AccCat()
+                
+            self.radioAccount.setDisabled(isPie)
+            self.month_cb.setDisabled(isPie)
+            self.legend_cb.setDisabled(isPie)
+            self.accu_cb.setDisabled(isPie)
+            self.fill_cb.setDisabled(isPie)
+        
+        if is3d:
+            from mpl_toolkits.mplot3d import Axes3D
+            if not self.axes.name == "3d":
+                self.axes = self.fig.gca(projection='3d')
+        else:
+            if not self.axes.name == "rectilinear":
+                self.axes = self.fig.add_subplot(111)
             
-        self.radioAccount.setDisabled(isPie)
-        self.month_cb.setDisabled(isPie)
-        self.legend_cb.setDisabled(isPie)
-        self.accu_cb.setDisabled(isPie)
-        self.fill_cb.setDisabled(isPie)
-        
     def set_stopD(self):
         date = self.cal.selectedDate()
         self.stopD_lbl.setText(date.toString())
@@ -135,13 +150,22 @@ class AppForm(QMainWindow):
         
         plots = []
         previous = 0
+        series = []
         
         if "pie" in gtype:
             pie_values = []
         
+        dates = []
+        for date in data.keys():
+            dates.append(datetime.datetime.strptime(date, '%Y-%m-%d'))
+            
+        
         left = range(len(data.values()))
         colors = get_next_color()
+        maxVal = 0
+        minVal = 0
         for key in selected.keys():
+            plot = None
             print "Plot %s" % selected[key]
             current = [dct[key] for dct in data.values() if len(dct.values()) != 0]
             if "line" in gtype:
@@ -151,30 +175,55 @@ class AppForm(QMainWindow):
                 if accu and previous != 0:
                         actual_current = [k+j for k, j in zip(previous, current)]
                 if fill:
-                    self.axes.fill_between(left, previous, actual_current, color=color)
-                
-                plot = self.axes.plot(left, actual_current, color=color)
+                    self.axes.fill_between(dates, previous, actual_current, color=color)
+                plot = self.axes.plot_date(dates, actual_current, color=color, linestyle='-', marker="")
                 
                 if accu:
                     previous = actual_current
             elif "pie" in gtype:
                 plot = pie_values.append(current[-1])
+            elif "3d curves" in gtype:
+                series.append(current)
+                maxVal = max(current + [maxVal])
+                minVal = min(current + [minVal])
             else:
                 print "no mode selected ... "+gtype
-                plot = None
             
             plots.append(plot)
             self.canvas.draw()
         
         if "pie" in gtype:
             self.axes.pie(pie_values, labels=labels, autopct='%1.0f%%')
+        
+        if "3d curves" in gtype:
             
-        if legend and not "pie" in gtype:
-            if "line" in gtype:
-                self.axes.legend(labels)
+            self.axes.mouse_init()
+            xs = [float(x) for x in range(len(data.values()))]
+            zs = [float(x) for x in range(len(series))]
+                
+            verts = []
+            for seri in series:
+                if fill:
+                    seri[0], seri[-1] = 0, 0
+                verts.append(zip(xs, seri))
+            
+            if fill:
+                poly = PolyCollection(verts, facecolors=[colors.next() for x in range(len(series))])
             else:
-                self.axes.legend(plots, labels)
+                poly = LineCollection(verts, colors=[colors.next() for x in range(len(series))])
+                
+            poly.set_alpha(0.7)
             
+            self.axes.add_collection3d(poly, zs=zs, zdir="y")
+            
+            self.axes.set_ylim3d(-1, len(series))
+            self.axes.set_yticks(range(len(series)))
+            self.axes.set_xlim3d(0, len(data.values()))
+            self.axes.set_zlim3d(minVal, maxVal)
+            
+        if legend and "line" in gtype:
+            self.axes.legend(labels)
+        
         self.canvas.draw()
         print "============"
         
@@ -194,11 +243,12 @@ class AppForm(QMainWindow):
         # configuration tool in the navigation toolbar wouldn't
         # work.
         #
+        
         self.axes = self.fig.add_subplot(111)
         
         # Create the navigation toolbar, tied to the canvas
         #
-        self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
+        #self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
         # Other GUI controls
         #         
@@ -261,6 +311,7 @@ class AppForm(QMainWindow):
         self.cboxGType = QComboBox()
         add_item_to_cbox(self.cboxGType, "Line", "line")
         add_item_to_cbox(self.cboxGType, "Pie", "pie")
+        add_item_to_cbox(self.cboxGType, "3D curves", "3d curves")
         self.connect(self.cboxGType, SIGNAL('currentIndexChanged(QString)'), self.change_GType)
         
         self.listCat = QListWidget()
@@ -296,7 +347,7 @@ class AppForm(QMainWindow):
             
         vbox = QVBoxLayout()
         vbox.addWidget(self.canvas)
-        vbox.addWidget(self.mpl_toolbar)
+        #vbox.addWidget(self.mpl_toolbar)
         
         add_box([self.month_cb, self.invert_cb, self.legend_cb])
         add_box([self.cboxGType])
@@ -362,8 +413,6 @@ def get_next_color():
     while True:
         yield colors[i % len(colors)]
         i += 1
-    
-    
 
 def main():
     app = QApplication(sys.argv)
