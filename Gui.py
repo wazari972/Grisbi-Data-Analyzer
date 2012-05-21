@@ -1,8 +1,9 @@
 import sys, os, random
+import datetime
+from collections import OrderedDict
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-
-import datetime
 
 import matplotlib
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
@@ -67,6 +68,38 @@ class AppForm(QMainWindow):
         self.startD_lbl.setText(date.toString())
         self.startD = (date.year(), date.month(), date.day())
     
+    def change_listAcc(self):
+        return self.change_listCatAcc(self.listAcc)
+    def change_listCat(self):
+        return self.change_listCatAcc(self.listCat)
+        
+    def change_listCatAcc(self, fromList):
+        current_uids = []
+        for item_idx in xrange(self.listSelected.count()):
+            item = self.listSelected.item(item_idx)
+            current_uids.append(str(item.data(Qt.UserRole).toPyObject()))
+        
+        for item in fromList.selectedItems():
+            name, uid = [str(x) for x in item.data(Qt.UserRole).toPyObject().items()[0]]
+            
+            if not uid in current_uids:
+                item = QListWidgetItem(name)
+                item.setData(Qt.UserRole, uid)
+                self.listSelected.addItem(item)
+            else:
+                current_uids.remove(uid)
+        
+        if len(current_uids) != 0:
+            to_remove = []
+            for item_idx in range(self.listSelected.count()):
+                item = self.listSelected.item(item_idx)
+                uid = str(item.data(Qt.UserRole).toPyObject())
+                if uid in current_uids:
+                    to_remove.append(item_idx)
+            
+            for item_idx in sorted(to_remove)[::-1]:
+                self.listSelected.takeItem(item_idx)
+            
     def change_GType(self):
         gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
         
@@ -75,16 +108,16 @@ class AppForm(QMainWindow):
         
         is3d = "3d" in gtype
         
-        if isPie or isLine:
-            if isPie:
-                self.radioCategory.setChecked(True)
-                self.change_AccCat()
-                
-            self.radioAccount.setDisabled(isPie)
-            self.month_cb.setDisabled(isPie)
-            self.legend_cb.setDisabled(isPie)
-            self.accu_cb.setDisabled(isPie)
-            self.fill_cb.setDisabled(isPie)
+        if isPie:
+            self.radioCategory.setChecked(True)
+        no_reset = self.radioCategory.isChecked()
+        self.change_AccCat(no_reset=no_reset)
+        
+        self.radioAccount.setDisabled(isPie)
+        self.month_cb.setDisabled(isPie)
+        self.legend_cb.setDisabled(isPie or is3d)
+        self.accu_cb.setDisabled(isPie or is3d)
+        self.fill_cb.setDisabled(isPie)
         
         if is3d:
             from mpl_toolkits.mplot3d import Axes3D
@@ -99,13 +132,23 @@ class AppForm(QMainWindow):
         self.stopD_lbl.setText(date.toString())
         self.stopD = (date.year(), date.month(), date.day())
     
-    def change_AccCat(self):
+    def change_AccCat(self, no_reset=False):
         self.listAcc.setDisabled(not self.radioAccount.isChecked())
         self.listCat.setDisabled(self.radioAccount.isChecked())
         
         self.month_cb.setDisabled(self.radioAccount.isChecked())
         self.invert_cb.setDisabled(self.radioAccount.isChecked())
         
+        if not no_reset:
+            self.listSelected.clear()
+        
+    def dclick_listSelected(self, itemIndex):
+        idx = itemIndex.row()
+        if idx != 0:
+            item = self.listSelected.takeItem(idx)
+            self.listSelected.insertItem(idx - 1, item)
+            self.listSelected.setCurrentItem(item)
+    
     def on_draw(self):
         """ Redraws the figure
         """
@@ -120,14 +163,11 @@ class AppForm(QMainWindow):
         if "pie" in gtype:
             monthly = False
         
-        if self.radioAccount.isChecked():
-            fromList = self.listAcc
-        else:
-            fromList = self.listCat
-        
-        selected = {}
-        for item in fromList.selectedItems():
-            name, uid = item.data(Qt.UserRole).toPyObject().items()[0]
+        selected = OrderedDict()
+        for item_idx in xrange(self.listSelected.count()):
+            item = self.listSelected.item(item_idx)
+            uid = item.data(Qt.UserRole).toPyObject()
+            name = item.text()
             selected[str(uid)] = str(name)
         
         if self.radioAccount.isChecked():
@@ -158,7 +198,6 @@ class AppForm(QMainWindow):
         dates = []
         for date in data.keys():
             dates.append(datetime.datetime.strptime(date, '%Y-%m-%d'))
-            
         
         left = range(len(data.values()))
         colors = get_next_color()
@@ -193,7 +232,7 @@ class AppForm(QMainWindow):
             self.canvas.draw()
         
         if "pie" in gtype:
-            self.axes.pie(pie_values, labels=labels, autopct='%1.0f%%')
+            self.axes.pie(pie_values, labels=labels, autopct='%1.0f%%', shadow=True)
         
         if "3d curves" in gtype:
             
@@ -316,6 +355,7 @@ class AppForm(QMainWindow):
         
         self.listCat = QListWidget()
         self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.connect(self.listCat, SIGNAL('itemSelectionChanged()'), self.change_listCat)
         
         for cat, name in self.src.get_categories().items():
             add_item_to_list(self.listCat, name, {name:cat})
@@ -323,10 +363,14 @@ class AppForm(QMainWindow):
         self.listAcc = QListWidget()
         self.listAcc.setSelectionMode(QAbstractItemView.ExtendedSelection) 
         self.listAcc.setDisabled(True)
+        self.connect(self.listAcc, SIGNAL('itemSelectionChanged()'), self.change_listAcc)
         
         for acc, name in self.src.get_accounts().items():
             add_item_to_list(self.listAcc, name, {name:acc})
-            
+        
+        self.listSelected = QListWidget()
+        self.listSelected.doubleClicked.connect(self.dclick_listSelected)
+        
         self.radioCategory = QRadioButton("Categories")
         self.radioCategory.setChecked(True)
         self.connect(self.radioCategory, SIGNAL('clicked()'), self.change_AccCat)
@@ -335,26 +379,26 @@ class AppForm(QMainWindow):
         
         #
         # Layout with box sizers
-        # 
+        
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.canvas)
+        #vbox.addWidget(self.mpl_toolbar)
         
         def add_box(elements):
             box = QHBoxLayout()
             for w in elements:
                 box.addWidget(w)
                 box.setAlignment(w, Qt.AlignVCenter)
+            
             vbox.addLayout(box)
             return box
-            
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.canvas)
-        #vbox.addWidget(self.mpl_toolbar)
         
         add_box([self.month_cb, self.invert_cb, self.legend_cb])
         add_box([self.cboxGType])
         add_box([self.accu_cb, self.fill_cb])
         add_box([self.showCal_cb, self.startD_lbl, self.startD_button, self.cal,  self.stopD_button, self.stopD_lbl])
         add_box([self.radioCategory, self.radioAccount])
-        add_box([self.listCat, self.listAcc])
+        add_box([self.listCat, self.listSelected, self.listAcc])
         add_box([self.draw_button])
         
         self.main_frame.setLayout(vbox)
