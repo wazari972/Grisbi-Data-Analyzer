@@ -5,27 +5,28 @@ from op import Operators, Operator, Maths, CSV
 from collections import OrderedDict
 
 class Request:
-    def __init__(self, monthly, start, stop, subcategories=None, accounts=None):
-        self.monthly = monthly
+    def __init__(self, frequence, start, stop, subcategories=None, accounts=None):
+        self.frequence = frequence
         self.subcategories = subcategories
         self.accounts = accounts
         self.start = start
         self.stop = stop
         
 class MathRequest(Request):
-    def __init__(self, monthly, start, stop, subcategories=None, accounts=None):
-        Request.__init__(self, monthly, start, stop, subcategories, accounts)
+    def __init__(self, frequence, start, stop, subcategories=None, accounts=None):
+        Request.__init__(self, frequence, start, stop, subcategories, accounts)
 
 class GraphRequest(Request):
-    def __init__(self, monthly, start, stop, inverted=False, legend=False, subcategories=None, accounts=None):
-        Request.__init__(self, monthly, start, stop, subcategories, accounts)
+    def __init__(self, frequence, start, stop, inverted=False, legend=False, subcategories=None, accounts=None):
+        Request.__init__(self, frequence, start, stop, subcategories, accounts)
         self.legend = legend
         self.inverted = inverted
 
 def processRequest(rq):
     ops = Operators()
 
-    ops.MONTHLY = rq.monthly
+    ops.MONTHLY = rq.frequence == "month"
+    ops.DAILY = rq.frequence == "day"
     
     if rq.accounts is not None:
         accounts = [Account.accounts[acc] for acc in rq.accounts]
@@ -56,6 +57,9 @@ class GrisbiDataProvider:
     def __init__(self, filename="kevin.gsb"):
         Grisbi.do_import(filename)
     
+    def get_first_last_date(self):
+        return Bank.get_first_last_date()
+    
     def get_accounts(self):
         dct = OrderedDict()
         for key, acc in Account.accounts.items():
@@ -73,10 +77,8 @@ class GrisbiDataProvider:
                 dct[sub_key] = "%s > %s" % (cat.name, sub_cat.name)
         return dct
     
-    def get_data(self, inverted, monthly, startD, stopD, subcategories=None, accounts=None):
-        #GraphRequest(False, (2011, 8, 1), (2012, 8, 1), inverted=True, subcategories=["6.9", "8.2","18.12"]),
-        #GraphRequest(True, (2011, 8, 1), (2012, 8, 1), accounts=["2"]),
+    def get_data(self, inverted, frequence, startD, stopD, subcategories=None, accounts=None):
         
-        rq = GraphRequest(monthly, startD, stopD, inverted=inverted, subcategories=subcategories, accounts=accounts)
+        rq = GraphRequest(frequence, startD, stopD, inverted=inverted, subcategories=subcategories, accounts=accounts)
         
         return processRequest(rq)

@@ -11,6 +11,7 @@ from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as Naviga
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 from matplotlib.collections import LineCollection
+from matplotlib import dates as mdates
 
 from GuiGrisbi import GrisbiDataProvider
 
@@ -25,14 +26,7 @@ class AppForm(QMainWindow):
         self.create_main_frame()
         self.create_status_bar()
         
-        self.on_draw()
-        try:
-            toto = self.startD
-            toto = self.stopD
-        except:
-            self.startD = None
-            self.stopD = None
-        
+        #self.on_draw()
         
     def save_plot(self):
         file_choices = "PNG (*.png)|*.png"
@@ -49,24 +43,29 @@ class AppForm(QMainWindow):
         """
         QMessageBox.about(self, "About the plotter", msg.strip())
     
-    def set_showCal(self, val=None):
-        
-        enable = self.showCal_cb.isChecked() if val is None else val
-        
-        self.startD_button.setDisabled(not enable)
-        self.stopD_button.setDisabled(not enable)
-        self.cal.setVisible(enable)
-        
-        self.showCal_cb.setText("Change" if not enable else "")            
+    def set_startD(self, dateTxt=None):
+        def set_d(d): self.startD = d
+        return self.set_date(set_d, self.startD_lbl, dateTxt)
     
-    def set_startD(self, minus_one=False):
-        date = self.cal.selectedDate()
+    def set_stopD(self, dateTxt=None):
+        def set_d(d): self.stopD = d
+        return self.set_date(set_d, self.stopD_lbl, dateTxt)
+    
+    def set_date(self, set_d, where_lbl, dateTxt=None):
+        if dateTxt is None:
+            dateTxt = str(self.textDate.text())
+            self.textDate.setText("")
         
-        if minus_one:
-            date = date.addYears(-1)
+        try:
+            date = datetime.datetime.strptime(dateTxt, '%Y/%m/%d')
+        except TypeError as e:
+            print e
+            self.textDate.setText("invalid date (%s), expected YYYY/MM/DD" % dateTxt)
+            return
         
-        self.startD_lbl.setText(date.toString())
-        self.startD = (date.year(), date.month(), date.day())
+        where_lbl.setText(date.strftime('%Y/%m/%d'))
+        
+        set_d(date)
     
     def change_listAcc(self):
         return self.change_listCatAcc(self.listAcc)
@@ -108,13 +107,18 @@ class AppForm(QMainWindow):
         
         is3d = "3d" in gtype
         
+        no_reset = self.radioCategory.isChecked()
         if isPie:
             self.radioCategory.setChecked(True)
-        no_reset = self.radioCategory.isChecked()
         self.change_AccCat(no_reset=no_reset)
-        
         self.radioAccount.setDisabled(isPie)
-        self.month_cb.setDisabled(isPie)
+        
+        
+        self.radioMonth.setDisabled(isPie)
+        self.radioDay.setDisabled(isPie)
+        if isPie:
+            self.radioAll.setChecked(True)
+            
         self.legend_cb.setDisabled(isPie or is3d)
         self.accu_cb.setDisabled(isPie or is3d)
         self.fill_cb.setDisabled(isPie)
@@ -126,17 +130,13 @@ class AppForm(QMainWindow):
         else:
             if not self.axes.name == "rectilinear":
                 self.axes = self.fig.add_subplot(111)
-            
-    def set_stopD(self):
-        date = self.cal.selectedDate()
-        self.stopD_lbl.setText(date.toString())
-        self.stopD = (date.year(), date.month(), date.day())
     
     def change_AccCat(self, no_reset=False):
         self.listAcc.setDisabled(not self.radioAccount.isChecked())
         self.listCat.setDisabled(self.radioAccount.isChecked())
         
-        self.month_cb.setDisabled(self.radioAccount.isChecked())
+        self.radioMonth.setDisabled(self.radioAccount.isChecked())
+        self.radioDay.setDisabled(self.radioAccount.isChecked())
         self.invert_cb.setDisabled(self.radioAccount.isChecked())
         
         if not no_reset:
@@ -156,12 +156,17 @@ class AppForm(QMainWindow):
         
         legend = self.legend_cb.isChecked()
         inverted = self.invert_cb.isChecked()
-        monthly = self.month_cb.isChecked()
+        frequence = None
+        if self.radioMonth.isChecked():
+            frequence = "month"
+        elif self.radioDay.isChecked():
+            frequence = "day"
+            
         accu = self.accu_cb.isChecked()
         fill = self.fill_cb.isChecked()
         
         if "pie" in gtype:
-            monthly = False
+            frequence = None
         
         selected = OrderedDict()
         for item_idx in xrange(self.listSelected.count()):
@@ -179,14 +184,17 @@ class AppForm(QMainWindow):
         
         labels = [entry for entry in selected.values()]
         
+        def datetime_to_datelist(date):
+            return date.year, date.month, date.day
+        
         print "Get the data"
-        data = self.src.get_data(inverted, monthly, self.startD, self.stopD, subcategories=subcategories, accounts=accounts)
+        data = self.src.get_data(inverted, frequence, datetime_to_datelist(self.startD), datetime_to_datelist(self.stopD), subcategories=subcategories, accounts=accounts)
         print "------------"
         
         
         # clear the axes and redraw the plot anew
         #
-        self.axes.clear()        
+        self.axes.clear()
         
         plots = []
         previous = 0
@@ -215,7 +223,13 @@ class AppForm(QMainWindow):
                         actual_current = [k+j for k, j in zip(previous, current)]
                 if fill:
                     self.axes.fill_between(dates, previous, actual_current, color=color)
+                    
+                # format the ticks
+                #self.axes.xaxis.set_major_locator(mdates.MonthLocator())
+                #self.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y %m'))
+                #self.axes.xaxis.set_minor_locator(mdates.MonthLocator())
                 plot = self.axes.plot_date(dates, actual_current, color=color, linestyle='-', marker="")
+                self.fig.autofmt_xdate()
                 
                 if accu:
                     previous = actual_current
@@ -310,33 +324,35 @@ class AppForm(QMainWindow):
         self.invert_cb.setChecked(False)
         self.connect(self.invert_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
-        self.month_cb = QCheckBox("Monthly ?")
-        self.month_cb.setChecked(False)
-        self.connect(self.month_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
-        self.cal = QCalendarWidget(self)
-        self.cal.setGridVisible(True)
-        self.cal.move(20, 20)
+        self.radioDay = QRadioButton("Daily")
+        self.connect(self.radioDay, SIGNAL('stateChanged(int)'), self.on_draw)
         
-        self.showCal_cb = QCheckBox("")
-        self.showCal_cb.setChecked(False)
-        self.connect(self.showCal_cb, SIGNAL('stateChanged(int)'), self.set_showCal)
+        self.radioMonth = QRadioButton("Monthly")
+        self.connect(self.radioMonth, SIGNAL('stateChanged(int)'), self.on_draw)
         
+        self.radioAll = QRadioButton("All")
+        self.connect(self.radioAll, SIGNAL('stateChanged(int)'), self.on_draw)
+        self.radioAll.setChecked(True)
+        
+        self.startD = datetime.datetime.today()
+        self.stopD = datetime.datetime.today()
+        
+        firstD, lastD = self.src.get_first_last_date()
+        
+        self.textDate = QLineEdit()
         self.startD_button = QPushButton("&Start date")
         self.connect(self.startD_button, SIGNAL('clicked()'), self.set_startD)
         self.startD_lbl = QLabel(self)
-        self.set_startD(minus_one=True)
-        
-        self.startD_lbl.move(130, 260)
+        #self.startD_lbl.move(130, 260)
         
         self.stopD_button = QPushButton("&Stop date")
         self.connect(self.stopD_button, SIGNAL('clicked()'), self.set_stopD)
         self.stopD_lbl = QLabel(self)
         
-        self.set_stopD()
-        self.stopD_lbl.move(130, 260)
-        
-        self.set_showCal(False)
+        self.set_startD(str(firstD))
+        self.set_stopD(str(lastD))
+        #self.stopD_lbl.move(130, 260)
         
         def add_item_to_cbox(cbox, name, data):
             cbox.addItem(name, QVariant(data))
@@ -393,10 +409,11 @@ class AppForm(QMainWindow):
             vbox.addLayout(box)
             return box
         
-        add_box([self.month_cb, self.invert_cb, self.legend_cb])
+        add_box([self.invert_cb, self.legend_cb])
+        add_box([self.radioDay, self.radioMonth, self.radioAll])
         add_box([self.cboxGType])
         add_box([self.accu_cb, self.fill_cb])
-        add_box([self.showCal_cb, self.startD_lbl, self.startD_button, self.cal,  self.stopD_button, self.stopD_lbl])
+        add_box([self.startD_lbl, self.startD_button, self.textDate,  self.stopD_button, self.stopD_lbl])
         add_box([self.radioCategory, self.radioAccount])
         add_box([self.listCat, self.listSelected, self.listAcc])
         add_box([self.draw_button])

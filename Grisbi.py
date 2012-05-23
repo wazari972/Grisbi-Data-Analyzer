@@ -35,3 +35,4 @@ def do_import(filename):
                     cat_id, sub_cat_id, acc_id,
                     montant, internal)
 
+    Transaction.import_finish()

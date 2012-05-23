@@ -1,6 +1,7 @@
 class Operators:
     def __init__(self):
         self.MONTHLY = False
+        self.DAILY = False
         self.operations = []
         
         self.currentDay = None
@@ -35,8 +36,10 @@ class Operators:
 
     def new_day(self, day):
         self.currentDay = day
-        for op in self.operations:
-            op.day()
+        for oper in self.operations:
+            oper.day()
+            if oper.daily:
+                oper.rotate()
     
     def newTransaction(self, transac):
         for op in self.operations:
@@ -46,6 +49,7 @@ class Operators:
 class Operator:
     def __init__(self, ops):
         self.monthly = ops.MONTHLY
+        self.daily = ops.DAILY
         self.registered = False
         
         self.ops = ops

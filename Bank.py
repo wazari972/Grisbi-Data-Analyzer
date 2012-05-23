@@ -123,19 +123,29 @@ class Transaction:
         self.account = Account.getAccount(acc_uid)
         self.internal = bool(internal)
         
+    @staticmethod
+    def import_finish():
+        Transaction.transactions = sorted(Transaction.transactions, lambda x, y : cmp(str(x.date), str(y.date)))
+
+def get_first_last_date():
+    if len(Transaction.transactions) == 0:
+        return None, None
+    
+    return Transaction.transactions[0].date, Transaction.transactions[-1].date
+    
 def processTransactions(ops, start=None, stop=None):
     if len(Transaction.transactions) == 0:
         return
     from op import Operator
-    sorted_transacs = sorted(Transaction.transactions, lambda x, y : cmp(str(x.date), str(y.date)))
+    
     
     if start is None:
-        start = sorted_transacs[0].date
+        start = Transaction.transactions[0].date
     if stop is None:
-        stop = sorted_transacs[-1].date
+        stop = Transaction.transactions[-1].date
         
     first = True
-    for transac in sorted_transacs:
+    for transac in Transaction.transactions:
         if first:
             currentDay = transac.date.day
             currentMonth = transac.date.month
