@@ -5,21 +5,13 @@ from op import Operators, Operator, Maths, CSV
 from collections import OrderedDict
 
 class Request:
-    def __init__(self, frequence, start, stop, subcategories=None, accounts=None):
+    def __init__(self, frequence, start, stop, inverted=False, accumulate=False, subcategories=None, accounts=None):
         self.frequence = frequence
         self.subcategories = subcategories
         self.accounts = accounts
         self.start = start
         self.stop = stop
-        
-class MathRequest(Request):
-    def __init__(self, frequence, start, stop, subcategories=None, accounts=None):
-        Request.__init__(self, frequence, start, stop, subcategories, accounts)
-
-class GraphRequest(Request):
-    def __init__(self, frequence, start, stop, inverted=False, legend=False, subcategories=None, accounts=None):
-        Request.__init__(self, frequence, start, stop, subcategories, accounts)
-        self.legend = legend
+        self.accumulate = accumulate
         self.inverted = inverted
 
 def processRequest(rq):
@@ -30,28 +22,17 @@ def processRequest(rq):
     
     if rq.accounts is not None:
         accounts = [Account.accounts[acc] for acc in rq.accounts]
-        if isinstance(rq, MathRequest):
-            raise("MathRequest: not yet")
-            op = Maths.MathsAccounts(ops, accounts)
-        elif isinstance(rq, GraphRequest):
-            op = CSV.CSV_Cumul_Accounts(ops, accounts)
-        else:
-            raise Exception("Unknown request type")
+        opMaths = Maths.MathsAccounts(ops, accounts, accumulate=rq.accumulate)
+        opGraph = CSV.CSV_Cumul_Accounts(ops, accounts)
     else:
         subcategories = [SubCategory.subcategories[subcat] for subcat in rq.subcategories]
-        if isinstance(rq, MathRequest):
-            raise("MathRequest: not yet")
-            op = Maths.MathsSubCats(ops, subcategories)
-        elif isinstance(rq, GraphRequest):
-            op = CSV.CSV_Cumul_SubCategories(ops, subcategories, invert=rq.inverted)
-        else:
-            raise Exception("Unknown request type")
+        opMaths = Maths.MathsSubCats(ops, subcategories, invert=rq.inverted, accumulate=rq.accumulate)
+        opGraph = CSV.CSV_Cumul_SubCategories(ops, subcategories, invert=rq.inverted)
     
     Bank.processTransactions(ops,
                              start=Bank.Date(*rq.start), 
                              stop=Bank.Date(*rq.stop))
-    return op.raw()
-
+    return {"maths": opMaths.dump(), "graph": opGraph.raw()}
 
 class GrisbiDataProvider:
     def __init__(self, filename="kevin.gsb"):
@@ -77,8 +58,8 @@ class GrisbiDataProvider:
                 dct[sub_key] = "%s > %s" % (cat.name, sub_cat.name)
         return dct
     
-    def get_data(self, inverted, frequence, startD, stopD, subcategories=None, accounts=None):
+    def get_data(self, inverted, frequence, accumulate, startD, stopD, subcategories=None, accounts=None):
         
-        rq = GraphRequest(frequence, startD, stopD, inverted=inverted, subcategories=subcategories, accounts=accounts)
+        rq = Request(frequence, startD, stopD, accumulate=accumulate, inverted=inverted, subcategories=subcategories, accounts=accounts)
         
         return processRequest(rq)

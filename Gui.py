@@ -148,7 +148,10 @@ class AppForm(QMainWindow):
             item = self.listSelected.takeItem(idx)
             self.listSelected.insertItem(idx - 1, item)
             self.listSelected.setCurrentItem(item)
-    
+            
+    def showHideMaths(self):
+        self.lblMath.setVisible(self.maths_cb.isChecked())
+        
     def on_draw(self):
         """ Redraws the figure
         """
@@ -188,9 +191,22 @@ class AppForm(QMainWindow):
             return date.year, date.month, date.day
         
         print "Get the data"
-        data = self.src.get_data(inverted, frequence, datetime_to_datelist(self.startD), datetime_to_datelist(self.stopD), subcategories=subcategories, accounts=accounts)
+        data = self.src.get_data(inverted, frequence, accu, datetime_to_datelist(self.startD), datetime_to_datelist(self.stopD), subcategories=subcategories, accounts=accounts)
         print "------------"
         
+        graphData, mathData = data["graph"], data["maths"]
+        
+        txt = ""
+        for cat in mathData.keys():
+            txt += "--------------------- %s ------------------" % cat
+            txt += "\n"
+            txt += "\t\t".join(mathData[cat][0].keys())
+            txt += "\n"
+            for data in mathData[cat]:
+                txt += "\t\t".join([str(int(x)) if x is not None else "NA" for x in data.values()])
+                txt += "\n"
+                    
+        self.lblMath.setText(txt)
         
         # clear the axes and redraw the plot anew
         #
@@ -204,17 +220,17 @@ class AppForm(QMainWindow):
             pie_values = []
         
         dates = []
-        for date in data.keys():
+        for date in graphData.keys():
             dates.append(datetime.datetime.strptime(date, '%Y-%m-%d'))
         
-        left = range(len(data.values()))
+        left = range(len(graphData.values()))
         colors = get_next_color()
         maxVal = 0
         minVal = 0
         for key in selected.keys():
             plot = None
             print "Plot %s" % selected[key]
-            current = [dct[key] for dct in data.values() if len(dct.values()) != 0]
+            current = [dct[key] for dct in graphData.values() if len(dct.values()) != 0]
             if "line" in gtype:
                 color = colors.next()
                 actual_current = current
@@ -251,7 +267,7 @@ class AppForm(QMainWindow):
         if "3d curves" in gtype:
             
             self.axes.mouse_init()
-            xs = [float(x) for x in range(len(data.values()))]
+            xs = [float(x) for x in range(len(graphData.values()))]
             zs = [float(x) for x in range(len(series))]
                 
             verts = []
@@ -271,7 +287,7 @@ class AppForm(QMainWindow):
             
             self.axes.set_ylim3d(-1, len(series))
             self.axes.set_yticks(range(len(series)))
-            self.axes.set_xlim3d(0, len(data.values()))
+            self.axes.set_xlim3d(0, len(graphData.values()))
             self.axes.set_zlim3d(minVal, maxVal)
             
         if legend and "line" in gtype:
@@ -303,6 +319,8 @@ class AppForm(QMainWindow):
         #
         #self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
+        self.lblMath = QLabel(self)
+        
         # Other GUI controls
         #         
         self.draw_button = QPushButton("&Draw")
@@ -319,6 +337,10 @@ class AppForm(QMainWindow):
         self.legend_cb = QCheckBox("Legend ?")
         self.legend_cb.setChecked(False)
         self.connect(self.legend_cb, SIGNAL('stateChanged(int)'), self.on_draw)
+        
+        self.maths_cb = QCheckBox("Maths ?")
+        self.maths_cb.setChecked(True)
+        self.connect(self.maths_cb, SIGNAL('stateChanged(int)'), self.showHideMaths)
         
         self.invert_cb = QCheckBox("Inverted ?")
         self.invert_cb.setChecked(False)
@@ -397,8 +419,6 @@ class AppForm(QMainWindow):
         # Layout with box sizers
         
         vbox = QVBoxLayout()
-        vbox.addWidget(self.canvas)
-        #vbox.addWidget(self.mpl_toolbar)
         
         def add_box(elements):
             box = QHBoxLayout()
@@ -409,7 +429,9 @@ class AppForm(QMainWindow):
             vbox.addLayout(box)
             return box
         
-        add_box([self.invert_cb, self.legend_cb])
+        add_box([self.canvas, self.lblMath])
+        
+        add_box([self.maths_cb, self.invert_cb, self.legend_cb])
         add_box([self.radioDay, self.radioMonth, self.radioAll])
         add_box([self.cboxGType])
         add_box([self.accu_cb, self.fill_cb])
