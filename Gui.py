@@ -494,6 +494,10 @@ class AppForm(QMainWindow):
             action.setCheckable(True)
         #return action
 
+def get_qt_color():
+    for color in get_next_color():
+        yield getattr(Qt, color)
+
 def get_next_color():
     colors = ["blue", "green", "red", "cyan", "magenta", "yellow", "black"]
     i = 0
@@ -536,24 +540,28 @@ class MyTableModel(QAbstractTableModel):
             else:
                 which_group = self.groups[idx % self.nb_groups]
                 which_part = idx / self.nb_groups
-                return QVariant("%s@%s" % (which_part, which_group))
+                return QVariant("%s" % (which_part))
         return QVariant()
         
     def data(self, index, role): 
+        which_group = self.groups[index.row() % self.nb_groups]
+        which_part = index.row() / self.nb_groups
+    
         if not index.isValid(): 
             return QVariant() 
+        elif role == Qt.BackgroundRole:
+            colors = get_qt_color()
+            for i in range((index.row() % self.nb_groups)+1):
+                color = colors.next()
+            return QColor(color)
         elif role != Qt.DisplayRole: 
-            return QVariant() 
-        
+            return QVariant()
+            
         key = self.header[index.column()]
-        
-        which_group = self.groups[index.row() % self.nb_groups]
-        
-        which_part = index.row() / self.nb_groups
         
         value = self.values[which_group][which_part][key]
         
-        return QVariant(("%d" % value) if int(value) != 0 else "")
+        return QVariant(("%d" % value) if value is not None and int(value) != 0 else "")
         
 if __name__ == "__main__":
     main()
