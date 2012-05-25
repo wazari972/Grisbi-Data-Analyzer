@@ -150,7 +150,7 @@ class AppForm(QMainWindow):
             self.listSelected.setCurrentItem(item)
             
     def showHideMaths(self):
-        self.lblMath.setVisible(self.maths_cb.isChecked())
+        self.tableMath.setVisible(self.maths_cb.isChecked())
         
     def on_draw(self):
         """ Redraws the figure
@@ -196,17 +196,21 @@ class AppForm(QMainWindow):
         
         graphData, mathData = data["graph"], data["maths"]
         
-        txt = ""
-        for cat in mathData.keys():
-            txt += "--------------------- %s ------------------" % cat
-            txt += "\n"
-            txt += "\t\t".join(mathData[cat][0].keys())
-            txt += "\n"
-            for data in mathData[cat]:
-                txt += "\t\t".join([str(int(x)) if x is not None else "NA" for x in data.values()])
-                txt += "\n"
-                    
-        self.lblMath.setText(txt)
+        self.tableMath.clearSpans()
+        
+        header = mathData.values()[0][0].keys()
+        values = mathData
+        
+        tm = MyTableModel(values, header, selected.keys() if not accu else ["All"]) 
+        self.tableMath.setModel(tm)
+        
+        self.tableMath.setShowGrid(False)
+        #self.tableMath.horizontalHeader().setVisible(False)
+        self.tableMath.resizeColumnsToContents()
+        self.tableMath.setSortingEnabled(False)
+
+        #for data in mathData[cat]:
+        #txt += "\t\t".join([str(int(x)) if x is not None else "NA" for x in data.values()])
         
         # clear the axes and redraw the plot anew
         #
@@ -319,7 +323,7 @@ class AppForm(QMainWindow):
         #
         #self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
-        self.lblMath = QLabel(self)
+        self.tableMath = QTableView()
         
         # Other GUI controls
         #         
@@ -429,7 +433,7 @@ class AppForm(QMainWindow):
             vbox.addLayout(box)
             return box
         
-        add_box([self.canvas, self.lblMath])
+        add_box([self.canvas, self.tableMath])
         
         add_box([self.maths_cb, self.invert_cb, self.legend_cb])
         add_box([self.radioDay, self.radioMonth, self.radioAll])
@@ -504,5 +508,52 @@ def main():
     app.exec_()
 
 
+class MyTableModel(QAbstractTableModel): 
+    def __init__(self, values, header, groups): 
+        """ datain: a list of lists
+            headerdata: a list of strings
+        """
+        QAbstractTableModel.__init__(self) 
+        
+        self.values = values
+        self.header = header
+        self.groups = groups
+        self.nb_groups = len(groups)
+        self.nb_parts = len(self.values.values()[0])
+        print "Parts:", self.nb_parts
+        print "groups:", self.groups
+        
+    def columnCount(self, parent):
+        return len(self.header)
+ 
+    def rowCount(self, parent): 
+        return self.nb_groups  * self.nb_parts
+        
+    def headerData(self, idx, orientation, role):
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return QVariant(self.header[idx])
+            else:
+                which_group = self.groups[idx % self.nb_groups]
+                which_part = idx / self.nb_groups
+                return QVariant("%s@%s" % (which_part, which_group))
+        return QVariant()
+        
+    def data(self, index, role): 
+        if not index.isValid(): 
+            return QVariant() 
+        elif role != Qt.DisplayRole: 
+            return QVariant() 
+        
+        key = self.header[index.column()]
+        
+        which_group = self.groups[index.row() % self.nb_groups]
+        
+        which_part = index.row() / self.nb_groups
+        
+        value = self.values[which_group][which_part][key]
+        
+        return QVariant(("%d" % value) if int(value) != 0 else "")
+        
 if __name__ == "__main__":
     main()
