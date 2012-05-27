@@ -12,6 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 from matplotlib.collections import LineCollection
 from matplotlib import dates as mdates
+import matplotlib.cm as cm
 
 from GuiGrisbi import GrisbiDataProvider
 
@@ -132,6 +133,8 @@ class AppForm(QMainWindow):
                 self.axes = self.fig.add_subplot(111)
     
     def change_AccCat(self, no_reset=False):
+        self.radioCategory.setChecked(not self.radioAccount.isChecked())
+        
         self.listAcc.setDisabled(not self.radioAccount.isChecked())
         self.listCat.setDisabled(self.radioAccount.isChecked())
         
@@ -141,6 +144,13 @@ class AppForm(QMainWindow):
         
         if not no_reset:
             self.listSelected.clear()
+            
+            if self.radioAccount.isChecked():
+                to_unselect = self.listCat
+            else:
+                to_unselect = self.listAcc
+            for item in to_unselect.selectedItems():
+                to_unselect.setItemSelected(item, False)
         
     def dclick_listSelected(self, itemIndex):
         idx = itemIndex.row()
@@ -171,12 +181,14 @@ class AppForm(QMainWindow):
         if "pie" in gtype:
             frequence = None
         
+        colors = get_next_qt_color(self.listSelected.count())
         selected = OrderedDict()
         for item_idx in xrange(self.listSelected.count()):
             item = self.listSelected.item(item_idx)
             uid = item.data(Qt.UserRole).toPyObject()
             name = item.text()
             selected[str(uid)] = str(name)
+            item.setData(Qt.BackgroundRole, colors.next())
         
         if self.radioAccount.isChecked():
             subcategories = None
@@ -228,9 +240,10 @@ class AppForm(QMainWindow):
             dates.append(datetime.datetime.strptime(date, '%Y-%m-%d'))
         
         left = range(len(graphData.values()))
-        colors = get_next_color()
+        
         maxVal = 0
         minVal = 0
+        colors = get_next_color(len(selected.keys()))
         for key in selected.keys():
             plot = None
             print "Plot %s" % selected[key]
@@ -243,12 +256,9 @@ class AppForm(QMainWindow):
                         actual_current = [k+j for k, j in zip(previous, current)]
                 if fill:
                     self.axes.fill_between(dates, previous, actual_current, color=color)
-                    
-                # format the ticks
-                #self.axes.xaxis.set_major_locator(mdates.MonthLocator())
-                #self.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y %m'))
-                #self.axes.xaxis.set_minor_locator(mdates.MonthLocator())
-                plot = self.axes.plot_date(dates, actual_current, color=color, linestyle='-', marker="")
+
+                #plot = self.axes.plot_date(dates, actual_current, color=color, linestyle='-', marker="")
+                plot = self.axes.plot_date(dates, actual_current, c=color, linestyle='-', marker="")
                 self.fig.autofmt_xdate()
                 
                 if accu:
@@ -295,7 +305,14 @@ class AppForm(QMainWindow):
             self.axes.set_zlim3d(minVal, maxVal)
             
         if legend and "line" in gtype:
-            self.axes.legend(labels)
+            #Shink current axis by 20%
+            box = self.axes.get_position()
+            self.axes.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+            
+            # Put a legend to the right of the current axis
+            self.axes.legend(labels, loc='center left', bbox_to_anchor=(1, 0.5))
+            
+            #self.axes.legend(labels)
         
         self.canvas.draw()
         print "============"
@@ -424,23 +441,37 @@ class AppForm(QMainWindow):
         
         vbox = QVBoxLayout()
         
-        def add_box(elements):
-            box = QHBoxLayout()
+        def add_box(elements, box_type=QHBoxLayout, do_add=True, is_widget=True):
+            box = box_type()
             for w in elements:
-                box.addWidget(w)
+                if is_widget:
+                    box.addWidget(w)
+                else:
+                    box.addLayout(w)
                 box.setAlignment(w, Qt.AlignVCenter)
-            
-            vbox.addLayout(box)
+            if do_add:
+                vbox.addLayout(box)
             return box
         
-        add_box([self.canvas, self.tableMath])
+        #box = add_box([self.canvas, self.tableMath])
+        box = QHBoxLayout()
+        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.tableMath.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         
-        add_box([self.maths_cb, self.invert_cb, self.legend_cb])
-        add_box([self.radioDay, self.radioMonth, self.radioAll])
-        add_box([self.cboxGType])
-        add_box([self.accu_cb, self.fill_cb])
+        box.addWidget(self.canvas)
+        box.addWidget(self.tableMath)
+        vbox.addLayout(box)
+        
+        opt_boxes = [add_box([self.maths_cb, self.invert_cb, self.legend_cb], box_type=QVBoxLayout, do_add=False),
+                     add_box([self.radioDay, self.radioMonth, self.radioAll], box_type=QVBoxLayout, do_add=False),
+                     add_box([self.accu_cb, self.fill_cb], box_type=QVBoxLayout, do_add=False)]
+        
+        add_box(opt_boxes, is_widget=False)
+        
         add_box([self.startD_lbl, self.startD_button, self.textDate,  self.stopD_button, self.stopD_lbl])
-        add_box([self.radioCategory, self.radioAccount])
+        box = add_box([self.radioCategory, self.cboxGType, self.radioAccount])
+        box.setAlignment(self.radioAccount, Qt.AlignRight)
+        
         add_box([self.listCat, self.listSelected, self.listAcc])
         add_box([self.draw_button])
         
@@ -494,16 +525,25 @@ class AppForm(QMainWindow):
             action.setCheckable(True)
         #return action
 
-def get_qt_color():
-    for color in get_next_color():
-        yield getattr(Qt, color)
+def get_next_qt_color(count):
+    for color in get_next_color(count):
+        print QColor.fromRgb(*color).name()
+        print color
+        
+        qcolor = QColor()
+        qcolor.setRedF(color[0])
+        qcolor.setGreenF(color[1])
+        qcolor.setBlueF(color[2])
+        qcolor.setAlphaF(0.5)
+        print qcolor.getRgbF()
+        yield qcolor
 
-def get_next_color():
-    colors = ["blue", "green", "red", "cyan", "magenta", "yellow", "black"]
-    i = 0
-    while True:
-        yield colors[i % len(colors)]
-        i += 1
+def get_next_color(count):
+    cNorm  = matplotlib.colors.Normalize(vmin=0, vmax=count)
+    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cm.jet)
+    
+    for i in range(count):
+        yield scalarMap.to_rgba(i)
 
 def main():
     app = QApplication(sys.argv)
@@ -523,9 +563,9 @@ class MyTableModel(QAbstractTableModel):
         self.header = header
         self.groups = groups
         self.nb_groups = len(groups)
+        self.group_colors = [c for c in get_next_qt_color(self.nb_groups)]
+        
         self.nb_parts = len(self.values.values()[0])
-        print "Parts:", self.nb_parts
-        print "groups:", self.groups
         
     def columnCount(self, parent):
         return len(self.header)
@@ -538,22 +578,21 @@ class MyTableModel(QAbstractTableModel):
             if orientation == Qt.Horizontal:
                 return QVariant(self.header[idx])
             else:
+                
                 which_group = self.groups[idx % self.nb_groups]
                 which_part = idx / self.nb_groups
                 return QVariant("%s" % (which_part))
         return QVariant()
         
     def data(self, index, role): 
-        which_group = self.groups[index.row() % self.nb_groups]
+        which_group_idx = index.row() % self.nb_groups
+        which_group = self.groups[which_group_idx]
         which_part = index.row() / self.nb_groups
     
         if not index.isValid(): 
             return QVariant() 
         elif role == Qt.BackgroundRole:
-            colors = get_qt_color()
-            for i in range((index.row() % self.nb_groups)+1):
-                color = colors.next()
-            return QColor(color)
+            return self.group_colors[which_group_idx]
         elif role != Qt.DisplayRole: 
             return QVariant()
             
