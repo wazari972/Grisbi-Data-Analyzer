@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 import sys, os, random
 import datetime
 from collections import OrderedDict
@@ -60,7 +62,6 @@ class AppForm(QMainWindow):
         try:
             date = datetime.datetime.strptime(dateTxt, '%Y/%m/%d')
         except TypeError as e:
-            print e
             self.textDate.setText("invalid date (%s), expected YYYY/MM/DD" % dateTxt)
             return
         
@@ -210,19 +211,22 @@ class AppForm(QMainWindow):
         
         self.tableMath.clearSpans()
         
-        header = mathData.values()[0][0].keys()
+        key = "All" if accu else selected.keys()[0]
+        
+        header = mathData[key][0].keys()
         values = mathData
         
-        tm = MyTableModel(values, header, selected.keys() if not accu else ["All"]) 
+        tm = MyTableModel(values, header, selected.keys() if not accu else ["All"], frequence) 
         self.tableMath.setModel(tm)
         
         self.tableMath.setShowGrid(False)
-        #self.tableMath.horizontalHeader().setVisible(False)
+        
+        if frequence is None:
+            self.tableMath.verticalHeader().setVisible(False)
+        else:
+            self.tableMath.verticalHeader().setVisible(True)
         self.tableMath.resizeColumnsToContents()
         self.tableMath.setSortingEnabled(False)
-
-        #for data in mathData[cat]:
-        #txt += "\t\t".join([str(int(x)) if x is not None else "NA" for x in data.values()])
         
         # clear the axes and redraw the plot anew
         #
@@ -456,15 +460,15 @@ class AppForm(QMainWindow):
         #box = add_box([self.canvas, self.tableMath])
         box = QHBoxLayout()
         self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.tableMath.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self.tableMath.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.MinimumExpanding)
         
         box.addWidget(self.canvas)
         box.addWidget(self.tableMath)
         vbox.addLayout(box)
         
-        opt_boxes = [add_box([self.maths_cb, self.invert_cb, self.legend_cb], box_type=QVBoxLayout, do_add=False),
-                     add_box([self.radioDay, self.radioMonth, self.radioAll], box_type=QVBoxLayout, do_add=False),
-                     add_box([self.accu_cb, self.fill_cb], box_type=QVBoxLayout, do_add=False)]
+        opt_boxes = [add_box([self.maths_cb, self.legend_cb], box_type=QVBoxLayout, do_add=False),
+                     add_box([self.radioAll, self.radioMonth, self.radioDay], box_type=QVBoxLayout, do_add=False),
+                     add_box([self.accu_cb, self.fill_cb, self.invert_cb], box_type=QVBoxLayout, do_add=False)]
         
         add_box(opt_boxes, is_widget=False)
         
@@ -527,15 +531,12 @@ class AppForm(QMainWindow):
 
 def get_next_qt_color(count):
     for color in get_next_color(count):
-        print QColor.fromRgb(*color).name()
-        print color
-        
         qcolor = QColor()
         qcolor.setRedF(color[0])
         qcolor.setGreenF(color[1])
         qcolor.setBlueF(color[2])
         qcolor.setAlphaF(0.5)
-        print qcolor.getRgbF()
+        
         yield qcolor
 
 def get_next_color(count):
@@ -553,7 +554,7 @@ def main():
 
 
 class MyTableModel(QAbstractTableModel): 
-    def __init__(self, values, header, groups): 
+    def __init__(self, values, header, groups, frequence): 
         """ datain: a list of lists
             headerdata: a list of strings
         """
@@ -562,9 +563,10 @@ class MyTableModel(QAbstractTableModel):
         self.values = values
         self.header = header
         self.groups = groups
+        self.dates = values["date"]
         self.nb_groups = len(groups)
         self.group_colors = [c for c in get_next_qt_color(self.nb_groups)]
-        
+        self.frequence = frequence
         self.nb_parts = len(self.values.values()[0])
         
     def columnCount(self, parent):
@@ -578,10 +580,22 @@ class MyTableModel(QAbstractTableModel):
             if orientation == Qt.Horizontal:
                 return QVariant(self.header[idx])
             else:
-                
-                which_group = self.groups[idx % self.nb_groups]
+                which_group_idx = idx % self.nb_groups
+                which_group = self.groups[which_group_idx]
                 which_part = idx / self.nb_groups
-                return QVariant("%s" % (which_part))
+                
+                date = datetime.datetime(*self.dates[which_part])
+                
+                if which_group_idx == 0:
+                    if self.frequence == "day":
+                        date = date.strftime('%Y/%m/%d')
+                    elif self.frequence == "month":
+                        date = date.strftime('%Y %m')
+                    else:
+                        date = ""
+                    return QVariant(date)
+                else:
+                    return QVariant()
         return QVariant()
         
     def data(self, index, role): 
@@ -593,14 +607,16 @@ class MyTableModel(QAbstractTableModel):
             return QVariant() 
         elif role == Qt.BackgroundRole:
             return self.group_colors[which_group_idx]
+        elif role == Qt.TextAlignmentRole:
+            return QVariant(Qt.AlignRight)
         elif role != Qt.DisplayRole: 
             return QVariant()
-            
+        
         key = self.header[index.column()]
         
         value = self.values[which_group][which_part][key]
         
-        return QVariant(("%d" % value) if value is not None and int(value) != 0 else "")
+        return QVariant(("%.1f" % value) if value is not None and int(value) != 0 else "")
         
 if __name__ == "__main__":
     main()
