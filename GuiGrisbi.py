@@ -35,7 +35,7 @@ def processRequest(rq):
     return {"maths": opMaths.dump(), "graph": opGraph.raw()}
 
 class GrisbiDataProvider:
-    def __init__(self, filename="kevin.gsb"):
+    def __init__(self, filename):
         Grisbi.do_import(filename)
     
     def get_first_last_date(self):

@@ -1,8 +1,13 @@
 #!/usr/bin/env python2
 
+# comment out if not relevant
+DEFAULT_ACCOUNT = "in/kevin.gsb"
+
 import sys, os, random
 import datetime
 from collections import OrderedDict
+import StringIO
+import pickle
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -22,24 +27,18 @@ class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         self.setWindowTitle('Grisbi Data Plotter')
-        
-        self.src = GrisbiDataProvider()
 
         self.create_menu()
+        
+        self.src = None
+        try:
+            self.src = GrisbiDataProvider(DEFAULT_ACCOUNT)
+        except NameError:
+            while self.src is None:
+                self.open_grisbi(initial=True)
+        
         self.create_main_frame()
-        self.create_status_bar()
-        
         #self.on_draw()
-        
-    def save_plot(self):
-        file_choices = "PNG (*.png)|*.png"
-        
-        path = unicode(QFileDialog.getSaveFileName(self, 
-                        'Save file', '', 
-                        file_choices))
-        if path:
-            self.canvas.print_figure(path, dpi=self.dpi)
-            self.statusBar().showMessage('Saved to %s' % path, 2000)
     
     def on_about(self):
         msg = """ A data plotter for Grisbi bank account files
@@ -71,6 +70,7 @@ class AppForm(QMainWindow):
     
     def change_listAcc(self):
         return self.change_listCatAcc(self.listAcc)
+        
     def change_listCat(self):
         return self.change_listCatAcc(self.listCat)
         
@@ -109,12 +109,12 @@ class AppForm(QMainWindow):
         
         is3d = "3d" in gtype
         
-        no_reset = self.radioCategory.isChecked()
         if isPie:
-            self.radioCategory.setChecked(True)
-        self.change_AccCat(no_reset=no_reset)
-        self.radioAccount.setDisabled(isPie)
+            if not self.radioCategory.isChecked():
+                self.radioCategory.setChecked(True)
+                self.change_AccCat()
         
+        self.radioAccount.setDisabled(isPie)
         
         self.radioMonth.setDisabled(isPie)
         self.radioDay.setDisabled(isPie)
@@ -135,12 +135,16 @@ class AppForm(QMainWindow):
     
     def change_AccCat(self, no_reset=False):
         self.radioCategory.setChecked(not self.radioAccount.isChecked())
+        self.radioAccount.setChecked(not self.radioCategory.isChecked())
         
         self.listAcc.setDisabled(not self.radioAccount.isChecked())
         self.listCat.setDisabled(self.radioAccount.isChecked())
         
         self.radioMonth.setDisabled(self.radioAccount.isChecked())
         self.radioDay.setDisabled(self.radioAccount.isChecked())
+        if not no_reset:
+            self.radioAll.setChecked(True)
+            
         self.invert_cb.setDisabled(self.radioAccount.isChecked())
         
         if not no_reset:
@@ -212,8 +216,10 @@ class AppForm(QMainWindow):
         self.tableMath.clearSpans()
         
         key = "All" if accu else selected.keys()[0]
-        
-        header = mathData[key][0].keys()
+        if len(mathData[key]) != 0:
+            header = mathData[key][0].keys()
+        else:
+            header = []
         values = mathData
         
         tm = MyTableModel(values, header, selected.keys() if not accu else ["All"], frequence) 
@@ -320,6 +326,24 @@ class AppForm(QMainWindow):
         
         self.canvas.draw()
         print "============"
+    
+    def populateAccCat(self):
+        def add_item_to_list(lst, name, data):
+            item = QListWidgetItem(name)
+            item.setData(Qt.UserRole, data)
+            lst.addItem(item)
+            return item
+        
+        self.listCat.clear()
+        for cat, name in self.src.get_categories().items():
+            add_item_to_list(self.listCat, name, {name:cat})
+    
+        self.listAcc.clear()
+        for acc, name in self.src.get_accounts().items():
+            add_item_to_list(self.listAcc, name, {name:acc})
+            
+        self.listSelected.clear()
+        
         
     def create_main_frame(self):
         self.main_frame = QWidget()
@@ -353,15 +377,12 @@ class AppForm(QMainWindow):
         
         self.accu_cb = QCheckBox("Accumulate ?")
         self.accu_cb.setChecked(False)
-        self.connect(self.accu_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
         self.fill_cb = QCheckBox("Fill ?")
         self.fill_cb.setChecked(False)
-        self.connect(self.fill_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
         self.legend_cb = QCheckBox("Legend ?")
         self.legend_cb.setChecked(False)
-        self.connect(self.legend_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
         self.maths_cb = QCheckBox("Maths ?")
         self.maths_cb.setChecked(True)
@@ -369,18 +390,18 @@ class AppForm(QMainWindow):
         
         self.invert_cb = QCheckBox("Inverted ?")
         self.invert_cb.setChecked(False)
-        self.connect(self.invert_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
-        
-        self.radioDay = QRadioButton("Daily")
-        self.connect(self.radioDay, SIGNAL('stateChanged(int)'), self.on_draw)
-        
-        self.radioMonth = QRadioButton("Monthly")
-        self.connect(self.radioMonth, SIGNAL('stateChanged(int)'), self.on_draw)
-        
-        self.radioAll = QRadioButton("All")
-        self.connect(self.radioAll, SIGNAL('stateChanged(int)'), self.on_draw)
+        self.grpFrequency = QGroupBox("Frequency")
+        self.radioDay = QRadioButton("Daily", self.grpFrequency)
+        self.radioMonth = QRadioButton("Monthly", self.grpFrequency)
+        self.radioAll = QRadioButton("All", self.grpFrequency)
         self.radioAll.setChecked(True)
+        
+        vboxFrequency = QVBoxLayout()
+        vboxFrequency.addWidget(self.radioDay)
+        vboxFrequency.addWidget(self.radioMonth)
+        vboxFrequency.addWidget(self.radioAll)
+        self.grpFrequency.setLayout(vboxFrequency);
         
         self.startD = datetime.datetime.today()
         self.stopD = datetime.datetime.today()
@@ -404,12 +425,6 @@ class AppForm(QMainWindow):
         def add_item_to_cbox(cbox, name, data):
             cbox.addItem(name, QVariant(data))
         
-        def add_item_to_list(lst, name, data):
-            item = QListWidgetItem(name)
-            item.setData(Qt.UserRole, data)
-            lst.addItem(item)
-            return item
-        
         self.cboxGType = QComboBox()
         add_item_to_cbox(self.cboxGType, "Line", "line")
         add_item_to_cbox(self.cboxGType, "Pie", "pie")
@@ -420,25 +435,28 @@ class AppForm(QMainWindow):
         self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self.listCat, SIGNAL('itemSelectionChanged()'), self.change_listCat)
         
-        for cat, name in self.src.get_categories().items():
-            add_item_to_list(self.listCat, name, {name:cat})
-            
         self.listAcc = QListWidget()
         self.listAcc.setSelectionMode(QAbstractItemView.ExtendedSelection) 
         self.listAcc.setDisabled(True)
         self.connect(self.listAcc, SIGNAL('itemSelectionChanged()'), self.change_listAcc)
         
-        for acc, name in self.src.get_accounts().items():
-            add_item_to_list(self.listAcc, name, {name:acc})
-        
         self.listSelected = QListWidget()
         self.listSelected.doubleClicked.connect(self.dclick_listSelected)
         
-        self.radioCategory = QRadioButton("Categories")
+        self.populateAccCat()
+        
+        self.grpCatAcc = QGroupBox("Data type")
+        self.radioCategory = QRadioButton("Categories", self.grpCatAcc)
         self.radioCategory.setChecked(True)
         self.connect(self.radioCategory, SIGNAL('clicked()'), self.change_AccCat)
-        self.radioAccount = QRadioButton("Accounts")
+        self.radioAccount = QRadioButton("Accounts", self.grpCatAcc)
         self.connect(self.radioAccount, SIGNAL('clicked()'), self.change_AccCat)
+        
+        vboxRadio = QVBoxLayout()
+        vboxRadio.addWidget(self.radioCategory)
+        vboxRadio.addWidget(self.radioAccount);
+        #vboxRadio.addStretch(1);
+        self.grpCatAcc.setLayout(vboxRadio);
         
         #
         # Layout with box sizers
@@ -466,45 +484,119 @@ class AppForm(QMainWindow):
         box.addWidget(self.tableMath)
         vbox.addLayout(box)
         
-        opt_boxes = [add_box([self.maths_cb, self.legend_cb], box_type=QVBoxLayout, do_add=False),
-                     add_box([self.radioAll, self.radioMonth, self.radioDay], box_type=QVBoxLayout, do_add=False),
+        opt_boxes = [add_box([self.cboxGType, self.maths_cb, self.legend_cb], box_type=QVBoxLayout, do_add=False),
+                     add_box([self.grpFrequency], do_add=False),
                      add_box([self.accu_cb, self.fill_cb, self.invert_cb], box_type=QVBoxLayout, do_add=False)]
         
         add_box(opt_boxes, is_widget=False)
         
         add_box([self.startD_lbl, self.startD_button, self.textDate,  self.stopD_button, self.stopD_lbl])
-        box = add_box([self.radioCategory, self.cboxGType, self.radioAccount])
         box.setAlignment(self.radioAccount, Qt.AlignRight)
         
-        add_box([self.listCat, self.listSelected, self.listAcc])
+        add_box([self.grpCatAcc, self.listCat, self.listSelected, self.listAcc])
         add_box([self.draw_button])
         
         self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
-    
-    def create_status_bar(self):
-        self.status_text = QLabel("This is a demo")
-        self.statusBar().addWidget(self.status_text, 1)
         
-    def create_menu(self):        
+    def create_menu(self):
         self.file_menu = self.menuBar().addMenu("&File")
         
-        load_file_action = self.create_action("&Save plot",
-            shortcut="Ctrl+S", slot=self.save_plot, 
-            tip="Save the plot")
+        open_grisbi_action = self.create_action("&Open Grisbi File",
+            shortcut="Ctrl+O", slot=self.open_grisbi)
+        
+        save_png_action = self.create_action("&Save plot",
+            shortcut="Ctrl+S", slot=self.save_plot)
+            
+        save_config_action = self.create_action("&Save configuration",
+            shortcut="Ctrl+Shift+S", slot=self.save_config)
+        
+        open_config_action = self.create_action("&Open configuration",
+            shortcut="Ctrl+Shift+O", slot=self.open_config)
+        
         quit_action = self.create_action("&Quit", slot=self.close, 
-            shortcut="Ctrl+Q", tip="Close the application")
+            shortcut="Ctrl+Q")
         
         self.add_actions(self.file_menu, 
-            (load_file_action, None, quit_action))
+                            (open_grisbi_action, None, 
+                            save_png_action, None, 
+                            open_config_action, save_config_action, None, 
+                            quit_action))
         
         self.help_menu = self.menuBar().addMenu("&Help")
         about_action = self.create_action("&About", 
-            shortcut='F1', slot=self.on_about, 
-            tip='About the plotter')
+            shortcut='F1', slot=self.on_about)
         
         self.add_actions(self.help_menu, (about_action,))
+        
+    def save_plot(self):
+        file_choices = "PNG (*.png)|*.png"
+        
+        path = unicode(QFileDialog.getSaveFileName(self, 
+                        'Save file', '', 
+                        file_choices))
+        if path:
+            self.canvas.print_figure(path, dpi=self.dpi)
+            
+    def open_grisbi(self, initial=False):
+        file_choices = "Grisbi Account (*.gsb)"
+        path = unicode(QFileDialog.getOpenFileName(self, 
+                        'Open file', '', 
+                        file_choices))
+        if path:
+            print path, "/", initial
+            self.src = GrisbiDataProvider(path)
+            if not initial:
+                self.populateAccCat()
+                
+    def save_config(self):
+        selected = OrderedDict()
+        for item_idx in xrange(self.listSelected.count()):
+            item = self.listSelected.item(item_idx)
+            uid = item.data(Qt.UserRole).toPyObject()
+            name = item.text()
+            selected[str(uid)] = str(name)
+        
+        if self.radioAccount.isChecked():
+            subcategories = None
+            accounts = selected
+        else:
+            accounts = None
+            subcategories = selected
+        frequency = "month" if self.radioMonth.isChecked() else "day" if self.radioDay.isChecked() else "all"
+        conf = Configuration(
+            math=self.maths_cb.isChecked(),
+            accu=self.accu_cb.isChecked(),
+            fill=self.fill_cb.isChecked(),
+            invert=self.invert_cb.isChecked(),
+            legend=self.legend_cb.isChecked(),
+            frequency=frequency,
+            gtype=str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject()),
+            startD=self.startD,
+            stopD=self.stopD,
+            subcategories=subcategories,
+            accounts=accounts)
+        output = StringIO.StringIO()
+        
+        file_choices = "Grisbi Graph Configuration (*.ggc)|*.ggc"
+        
+        path = unicode(QFileDialog.getSaveFileName(self, 
+                        'Save configuration', '', 
+                        file_choices))
+        if path:
+            with open(path, "w") as output:
+                pickle.dump(conf, output)
 
+    def open_config(self):
+        file_choices = "Grisbi Graph Configuration (*.ggc)"
+        path = unicode(QFileDialog.getOpenFileName(self, 
+            'Open file', '', 
+            file_choices))
+        if path:
+            with open(path, "r") as inputfile:
+                conf = pickle.Unpickler(inputfile).load()
+                conf.restore(self)
+                
     def add_actions(self, target, actions):
         for action in actions:
             if action is None:
@@ -513,21 +605,18 @@ class AppForm(QMainWindow):
                 target.addAction(action)
 
     def create_action(self, text, slot=None, shortcut=None, 
-                      icon=None, tip=None, checkable=False, 
+                      icon=None, checkable=False, 
                       signal="triggered()"):
         action = QAction(text, self)
         if icon is not None:
             action.setIcon(QIcon(":/%s.png" % icon))
         if shortcut is not None:
             action.setShortcut(shortcut)
-        if tip is not None:
-            action.setToolTip(tip)
-            action.setStatusTip(tip)
         if slot is not None:
             self.connect(action, SIGNAL(signal), slot)
         if checkable:
             action.setCheckable(True)
-        #return action
+        return action
 
 def get_next_qt_color(count):
     for color in get_next_color(count):
@@ -551,7 +640,6 @@ def main():
     form = AppForm()
     form.show()
     app.exec_()
-
 
 class MyTableModel(QAbstractTableModel): 
     def __init__(self, values, header, groups, frequence): 
@@ -617,6 +705,52 @@ class MyTableModel(QAbstractTableModel):
         value = self.values[which_group][which_part][key]
         
         return QVariant(("%.1f" % value) if value is not None and int(value) != 0 else "")
+
+class Configuration:
+    def __init__(self, math, legend, frequency, accu, fill, invert, 
+                 startD, stopD, gtype, accounts, subcategories):
+        self.math = math
+        self.legend = legend
+        self.frequency = frequency
+        self.accu = accu
+        self.fill = fill
+        self.invert = invert
+        self.startD = startD
+        self.stopD = stopD
+        self.gtype = gtype
+        self.accounts = accounts
+        self.subcategories = subcategories
+        
+    def restore(self, target):
+        target.maths_cb.setChecked(self.math)
+        target.accu_cb.setChecked(self.accu)
+        target.fill_cb.setChecked(self.fill)
+        target.invert_cb.setChecked(self.invert)
+        target.legend_cb.setChecked(self.legend)
+        print self.frequency
+        print self.frequency == "month"
+        target.radioAll.setChecked(self.frequency == "all")
+        target.radioMonth.setChecked(self.frequency == "month")
+        target.radioDay.setChecked(self.frequency == "day")
+        
+        idx = target.cboxGType.findData(QVariant(self.gtype), Qt.UserRole)
+        target.cboxGType.setCurrentIndex(idx)
+        target.change_GType()
+        
+        target.set_startD(self.startD.strftime('%Y/%m/%d'))
+        target.set_stopD(self.stopD.strftime('%Y/%m/%d'))
+        
+        target.radioAccount.setChecked(self.accounts is not None)
+        target.radioCategory.setChecked(self.subcategories is not None)
+        selected = self.subcategories if self.subcategories is not None else self.accounts
+        
+        target.listSelected.clear()
+        for uid, name in selected.items():
+            item = QListWidgetItem(name)
+            item.setData(Qt.UserRole, uid)
+            target.listSelected.addItem(item)
+        
+        target.on_draw()
         
 if __name__ == "__main__":
     main()

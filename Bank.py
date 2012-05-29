@@ -1,31 +1,14 @@
 import calendar
-
-IN_FOLDER = "in"
-OUT_FOLDER = "out/"
-
-name = None
-def set_name(name_):
-    global name, OUT_FOLDER
-    assert name is None
-    name = name_
-    OUT_FOLDER += name
-    import os
-    try:
-        os.mkdir(OUT_FOLDER)
-    except OSError:
-        pass
-    
-def get_name():
-    global name
-    return name
     
 class Date:
     def __init__(self, year, month, day):
         self.year = int(year)
         self.month = int(month)
         self.day = int(day)
+        
     def __str__(self):
         return "%s/%02d/%02d" % (self.year, self.month, self.day)
+        
     def __repr__(self):
         return str(self)
 
@@ -49,7 +32,11 @@ class Account(UIDName):
         UIDName.__init__(self, uid, name)
         Account.accounts[uid] = self
         self.init_value = init_value
-            
+    
+    @staticmethod
+    def empty():
+        Account.accounts = {}
+        
     @staticmethod
     def getAccount(acc_uid):
         global defaultAccount
@@ -64,6 +51,11 @@ defaultAccount = None
 
 class Category(UIDName):
     categories = {}
+    
+    @staticmethod
+    def empty():
+        Category.categories = {}
+    
     def __init__(self, uid, name, inverted=False, skip=False):
         UIDName.__init__(self, uid, name)
         Category.categories[uid] = self
@@ -97,6 +89,11 @@ defaultCat = None
 
 class SubCategory(UIDName):
     subcategories = {}
+    
+    @staticmethod
+    def empty():
+        SubCategory.subcategories = {}
+    
     def __init__(self, uid, name, cat_uid):
         UIDName.__init__(self, uid, name)
         SubCategory.subcategories["%s.%s" % (cat_uid, uid)] = self
@@ -109,6 +106,11 @@ transferSubCat = SubCategory("0", "Transfer", "0")
 
 class Transaction:
     transactions = []
+    
+    @staticmethod
+    def empty():
+        Transaction.transactions = []
+    
     def __init__(self, uid, name, date,
                  cat_uid, subcat_uid, acc_uid,
                  montant, internal):
@@ -174,7 +176,6 @@ def processTransactions(ops, start=None, stop=None):
                 ops.new_day(currentDay)
                 
         if first:
-            #print "Start: ", (currentYear, currentMonth, currentDay)
             ops.init_date(currentYear, currentMonth, currentDay)
             first = False
             

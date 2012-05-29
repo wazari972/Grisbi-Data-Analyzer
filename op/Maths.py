@@ -14,11 +14,13 @@ class Maths(Operator):
         self.daily_val = defaultdict(lambda : 0)
         self.dumps = defaultdict(lambda : [])
         self.accumulate = accumulate
+        self.dumped = True
         
     def get_doers(self):
         return ()
         
     def process(self, transac):
+        self.dumped = False
         self.daily_val[self.getKey(transac)] += transac.montant
     
     def getKey(self, transac):
@@ -38,12 +40,14 @@ class Maths(Operator):
             self.daily_val[key] = 0
 
     def dump(self, intermediate=False):
-        for key in self.getKeys():
-            ret = {}
-            for doer in self.doers:
-                ret = OrderedDict(ret.items() + doer.dump(key).items())
-            self.dumps[key].append(ret)
-            
+        if intermediate or not self.dumped:
+            for key in self.getKeys():
+                ret = {}
+                for doer in self.doers:
+                    ret = OrderedDict(ret.items() + doer.dump(key).items())
+                self.dumps[key].append(ret)
+            self.dumps["date"].append((self.ops.currentYear, self.ops.currentMonth, self.ops.currentDay))
+            self.dumped = True
         dumps = self.dumps
         if not intermediate:
             self.dumps = defaultdict(lambda : [])
@@ -131,7 +135,7 @@ class Total:
     
     def dump(self, key):
         ret = {"Total": self.total[key]}
-        self.total = defaultdict(lambda : 0)
+        self.total[key] = 0
         return ret
 
 class MinMaxTotal:

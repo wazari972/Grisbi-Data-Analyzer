@@ -4,9 +4,13 @@ import Bank
 from Bank import Account, Category, SubCategory, Transaction, Date
 
 def do_import(filename):
-    Bank.set_name(filename.split(".")[0])
-    Grisbi = etree.parse(Bank.IN_FOLDER + "/" + filename).getroot()
+    print "import ",filename
+    Grisbi = etree.parse(filename).getroot()
 
+    Account.empty()
+    SubCategory.empty()
+    Transaction.empty()
+    
     for account in Grisbi.findall("Account"):
         Account(account.get("Number"), account.get("Name"), float(account.get("Initial_balance")))
 
