@@ -4,7 +4,6 @@ import Bank
 from Bank import Account, Category, SubCategory, Transaction, Date
 
 def do_import(filename):
-    print "import ",filename
     Grisbi = etree.parse(filename).getroot()
 
     Account.empty()

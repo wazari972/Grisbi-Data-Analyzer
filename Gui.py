@@ -23,16 +23,19 @@ import matplotlib.cm as cm
 
 from GuiGrisbi import GrisbiDataProvider
 
+WINDOW_NAME = 'Grisbi Data Plotter: %s'
+
 class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.setWindowTitle('Grisbi Data Plotter')
-
+        
         self.create_menu()
         
         self.src = None
         try:
-            self.src = GrisbiDataProvider(DEFAULT_ACCOUNT)
+            path = DEFAULT_ACCOUNT
+            self.src = GrisbiDataProvider(path)
+            self.set_current_file(path)
         except NameError:
             while self.src is None:
                 self.open_grisbi(initial=True)
@@ -336,6 +339,8 @@ class AppForm(QMainWindow):
         
         self.listCat.clear()
         for cat, name in self.src.get_categories().items():
+            if cat == "0.0":
+                continue
             add_item_to_list(self.listCat, name, {name:cat})
     
         self.listAcc.clear()
@@ -344,7 +349,12 @@ class AppForm(QMainWindow):
             
         self.listSelected.clear()
         
+    def set_startstop_dates(self):
+        firstD, lastD = self.src.get_first_last_date()
         
+        self.set_startD(str(firstD))
+        self.set_stopD(str(lastD))
+    
     def create_main_frame(self):
         self.main_frame = QWidget()
         
@@ -406,21 +416,16 @@ class AppForm(QMainWindow):
         self.startD = datetime.datetime.today()
         self.stopD = datetime.datetime.today()
         
-        firstD, lastD = self.src.get_first_last_date()
-        
         self.textDate = QLineEdit()
         self.startD_button = QPushButton("&Start date")
         self.connect(self.startD_button, SIGNAL('clicked()'), self.set_startD)
         self.startD_lbl = QLabel(self)
-        #self.startD_lbl.move(130, 260)
         
         self.stopD_button = QPushButton("&Stop date")
         self.connect(self.stopD_button, SIGNAL('clicked()'), self.set_stopD)
         self.stopD_lbl = QLabel(self)
         
-        self.set_startD(str(firstD))
-        self.set_stopD(str(lastD))
-        #self.stopD_lbl.move(130, 260)
+        self.set_startstop_dates()
         
         def add_item_to_cbox(cbox, name, data):
             cbox.addItem(name, QVariant(data))
@@ -530,7 +535,7 @@ class AppForm(QMainWindow):
         self.add_actions(self.help_menu, (about_action,))
         
     def save_plot(self):
-        file_choices = "PNG (*.png)|*.png"
+        file_choices = "PNG (*.png)"
         
         path = unicode(QFileDialog.getSaveFileName(self, 
                         'Save file', '', 
@@ -544,11 +549,13 @@ class AppForm(QMainWindow):
                         'Open file', '', 
                         file_choices))
         if path:
-            print path, "/", initial
             self.src = GrisbiDataProvider(path)
             if not initial:
                 self.populateAccCat()
-                
+                self.set_startstop_dates()
+            self.set_current_file(path)
+        return path
+        
     def save_config(self):
         selected = OrderedDict()
         for item_idx in xrange(self.listSelected.count()):
@@ -578,7 +585,7 @@ class AppForm(QMainWindow):
             accounts=accounts)
         output = StringIO.StringIO()
         
-        file_choices = "Grisbi Graph Configuration (*.ggc)|*.ggc"
+        file_choices = "Grisbi Graph Configuration (*.ggc)"
         
         path = unicode(QFileDialog.getSaveFileName(self, 
                         'Save configuration', '', 
@@ -617,7 +624,11 @@ class AppForm(QMainWindow):
         if checkable:
             action.setCheckable(True)
         return action
-
+        
+    def set_current_file(self, filename):
+        filename = filename.split("/")[-1]
+        self.setWindowTitle(WINDOW_NAME % filename)
+        
 def get_next_qt_color(count):
     for color in get_next_color(count):
         qcolor = QColor()
@@ -727,11 +738,6 @@ class Configuration:
         target.fill_cb.setChecked(self.fill)
         target.invert_cb.setChecked(self.invert)
         target.legend_cb.setChecked(self.legend)
-        print self.frequency
-        print self.frequency == "month"
-        target.radioAll.setChecked(self.frequency == "all")
-        target.radioMonth.setChecked(self.frequency == "month")
-        target.radioDay.setChecked(self.frequency == "day")
         
         idx = target.cboxGType.findData(QVariant(self.gtype), Qt.UserRole)
         target.cboxGType.setCurrentIndex(idx)
@@ -743,13 +749,31 @@ class Configuration:
         target.radioAccount.setChecked(self.accounts is not None)
         target.radioCategory.setChecked(self.subcategories is not None)
         selected = self.subcategories if self.subcategories is not None else self.accounts
+        srcList = target.listCat if self.subcategories is not None else target.listAcc
+        
+        target.change_AccCat()
+        
+        print self.frequency
+        if self.frequency == "all":
+            to_select = target.radioAll
+        elif self.frequency == "month":
+            to_select = target.radioMonth
+        else:
+            to_select = target.radioDay
+        
+        to_select.setChecked(True)
         
         target.listSelected.clear()
         for uid, name in selected.items():
             item = QListWidgetItem(name)
             item.setData(Qt.UserRole, uid)
             target.listSelected.addItem(item)
-        
+            
+            try:
+                srcList.findItems(QString(name), Qt.MatchFlags(Qt.MatchExactly))[0].setSelected(True)
+            except IndexError:
+                pass
+                
         target.on_draw()
         
 if __name__ == "__main__":
