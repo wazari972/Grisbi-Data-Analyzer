@@ -8,6 +8,7 @@ import datetime
 from collections import OrderedDict
 import StringIO
 import pickle
+import calendar
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -49,28 +50,45 @@ class AppForm(QMainWindow):
         QMessageBox.about(self, "About the plotter", msg.strip())
     
     def set_startD(self, dateTxt=None):
-        def set_d(d): self.startD = d
-        return self.set_date(set_d, self.startD_lbl, dateTxt)
+        return self.set_date(self.startD_lbl, dateTxt, is_start=True)
     
     def set_stopD(self, dateTxt=None):
-        def set_d(d): self.stopD = d
-        return self.set_date(set_d, self.stopD_lbl, dateTxt)
+        return self.set_date(self.stopD_lbl, dateTxt, is_start=False)
     
-    def set_date(self, set_d, where_lbl, dateTxt=None):
-        if dateTxt is None:
-            dateTxt = str(self.textDate.text())
-            self.textDate.setText("")
-        
-        try:
+    def set_date(self, where_lbl, dateTxt=None, is_start=False):
+        if dateTxt is not None:
             date = datetime.datetime.strptime(dateTxt, '%Y/%m/%d')
-        except TypeError as e:
-            self.textDate.setText("invalid date (%s), expected YYYY/MM/DD" % dateTxt)
-            return
+        else:
+            date = self.cBoxDate.itemData(self.cBoxDate.currentIndex()).toPyObject()
+            if date is None:
+                return
         
-        where_lbl.setText(date.strftime('%Y/%m/%d'))
+        if is_start:
+            self.startD = datetime.datetime(date.year, date.month, 1)
+        else:
+            last_day = calendar.monthrange(date.year, date.month)[1]
+            self.stopD = datetime.datetime(date.year, date.month, last_day)
+            
+        where_lbl.setText((self.startD if is_start else self.stopD).strftime('%Y/%m/%d'))
         
-        set_d(date)
-    
+    def set_startstop_dates(self):
+        firstD, lastD = self.src.get_first_last_date()
+        
+        self.set_startD(str(firstD))
+        self.set_stopD(str(lastD))
+        
+        self.cBoxDate.clear()
+        
+        add_item_to_cbox(self.cBoxDate, "Date", None)
+        print self.startD
+        print self.stopD
+        start_month = self.startD.month
+        end_months = (self.stopD.year - self.startD.year) * 12 + self.stopD.month + 1
+        for m in range(start_month, end_months):
+            yr, mn = ((m - 1) / 12 + self.startD.year, (m - 1) % 12 + 1)
+            d = datetime.datetime(year=yr, month=mn, day=1)
+            add_item_to_cbox(self.cBoxDate, d.strftime("%B %Y"), d)
+        
     def change_listAcc(self):
         return self.change_listCatAcc(self.listAcc)
         
@@ -348,12 +366,6 @@ class AppForm(QMainWindow):
             add_item_to_list(self.listAcc, name, {name:acc})
             
         self.listSelected.clear()
-        
-    def set_startstop_dates(self):
-        firstD, lastD = self.src.get_first_last_date()
-        
-        self.set_startD(str(firstD))
-        self.set_stopD(str(lastD))
     
     def create_main_frame(self):
         self.main_frame = QWidget()
@@ -416,7 +428,7 @@ class AppForm(QMainWindow):
         self.startD = datetime.datetime.today()
         self.stopD = datetime.datetime.today()
         
-        self.textDate = QLineEdit()
+        self.cBoxDate = QComboBox()
         self.startD_button = QPushButton("&Start date")
         self.connect(self.startD_button, SIGNAL('clicked()'), self.set_startD)
         self.startD_lbl = QLabel(self)
@@ -426,9 +438,6 @@ class AppForm(QMainWindow):
         self.stopD_lbl = QLabel(self)
         
         self.set_startstop_dates()
-        
-        def add_item_to_cbox(cbox, name, data):
-            cbox.addItem(name, QVariant(data))
         
         self.cboxGType = QComboBox()
         add_item_to_cbox(self.cboxGType, "Line", "line")
@@ -495,7 +504,7 @@ class AppForm(QMainWindow):
         
         add_box(opt_boxes, is_widget=False)
         
-        add_box([self.startD_lbl, self.startD_button, self.textDate,  self.stopD_button, self.stopD_lbl])
+        add_box([self.startD_lbl, self.startD_button, self.cBoxDate,  self.stopD_button, self.stopD_lbl])
         box.setAlignment(self.radioAccount, Qt.AlignRight)
         
         add_box([self.grpCatAcc, self.listCat, self.listSelected, self.listAcc])
@@ -776,5 +785,8 @@ class Configuration:
                 
         target.on_draw()
         
+def add_item_to_cbox(cbox, name, data):
+    cbox.addItem(name, QVariant(data))
+    
 if __name__ == "__main__":
     main()
