@@ -80,8 +80,7 @@ class AppForm(QMainWindow):
         self.cBoxDate.clear()
         
         add_item_to_cbox(self.cBoxDate, "Date", None)
-        print self.startD
-        print self.stopD
+        
         start_month = self.startD.month
         end_months = (self.stopD.year - self.startD.year) * 12 + self.stopD.month + 1
         for m in range(start_month, end_months):
@@ -207,15 +206,16 @@ class AppForm(QMainWindow):
         if "pie" in gtype:
             frequence = None
         
-        colors = get_next_qt_color(self.listSelected.count())
+        count = self.listSelected.count()
+        colors = get_next_qt_color(count)
         selected = OrderedDict()
-        for item_idx in xrange(self.listSelected.count()):
+        for item_idx in xrange(count):
             item = self.listSelected.item(item_idx)
             uid = item.data(Qt.UserRole).toPyObject()
             name = item.text()
             selected[str(uid)] = str(name)
             item.setData(Qt.BackgroundRole, colors.next())
-        
+            
         if self.radioAccount.isChecked():
             subcategories = None
             accounts = selected.keys()
@@ -519,6 +519,9 @@ class AppForm(QMainWindow):
         open_grisbi_action = self.create_action("&Open Grisbi File",
             shortcut="Ctrl+O", slot=self.open_grisbi)
         
+        info_config_action = self.create_action("&Current Configuration",
+            shortcut="Ctrl+C", slot=self.current_config)
+        
         save_png_action = self.create_action("&Save plot",
             shortcut="Ctrl+S", slot=self.save_plot)
             
@@ -531,10 +534,12 @@ class AppForm(QMainWindow):
         quit_action = self.create_action("&Quit", slot=self.close, 
             shortcut="Ctrl+Q")
         
+        QShortcut(QKeySequence("Ctrl+G"), self, self.on_draw)
+        
         self.add_actions(self.file_menu, 
                             (open_grisbi_action, None, 
                             save_png_action, None, 
-                            open_config_action, save_config_action, None, 
+                            info_config_action, open_config_action, save_config_action, None, 
                             quit_action))
         
         self.help_menu = self.menuBar().addMenu("&Help")
@@ -564,14 +569,19 @@ class AppForm(QMainWindow):
                 self.set_startstop_dates()
             self.set_current_file(path)
         return path
+    
+    def current_config(self):
+        conf_str = str(self.create_config())
+        Configuration.restore_from_string(conf_str, self)
+        QMessageBox.information(self, "Current configuration", str(conf_str), "Thanks")
         
-    def save_config(self):
-        selected = OrderedDict()
+        
+    def create_config(self):
+        selected = []
         for item_idx in xrange(self.listSelected.count()):
             item = self.listSelected.item(item_idx)
             uid = item.data(Qt.UserRole).toPyObject()
-            name = item.text()
-            selected[str(uid)] = str(name)
+            selected.append(uid)
         
         if self.radioAccount.isChecked():
             subcategories = None
@@ -592,7 +602,10 @@ class AppForm(QMainWindow):
             stopD=self.stopD,
             subcategories=subcategories,
             accounts=accounts)
-        output = StringIO.StringIO()
+        return conf
+        
+    def save_config(self):
+        conf = self.create_config()
         
         file_choices = "Grisbi Graph Configuration (*.ggc)"
         
@@ -601,7 +614,7 @@ class AppForm(QMainWindow):
                         file_choices))
         if path:
             with open(path, "w") as output:
-                pickle.dump(conf, output)
+                output.write(str(conf))
 
     def open_config(self):
         file_choices = "Grisbi Graph Configuration (*.ggc)"
@@ -610,8 +623,8 @@ class AppForm(QMainWindow):
             file_choices))
         if path:
             with open(path, "r") as inputfile:
-                conf = pickle.Unpickler(inputfile).load()
-                conf.restore(self)
+                conf_str = inputfile.read()
+                Configuration.restore_from_string(conf_str, self)
                 
     def add_actions(self, target, actions):
         for action in actions:
@@ -727,19 +740,77 @@ class MyTableModel(QAbstractTableModel):
         return QVariant(("%.1f" % value) if value is not None and int(value) != 0 else "")
 
 class Configuration:
-    def __init__(self, math, legend, frequency, accu, fill, invert, 
-                 startD, stopD, gtype, accounts, subcategories):
+    PROPERTIES = ("math", "legend", "fill", "accu", "invert")
+    
+    def __init__(self, math=False, legend=False, frequency=False, accu=False, fill=False, invert=False, 
+                       startD=None, stopD=None, gtype=None, accounts=None, subcategories=None):
         self.math = math
         self.legend = legend
-        self.frequency = frequency
         self.accu = accu
         self.fill = fill
         self.invert = invert
+        
         self.startD = startD
         self.stopD = stopD
+        
+        self.frequency = frequency
         self.gtype = gtype
+        
         self.accounts = accounts
         self.subcategories = subcategories
+    
+    def __str__(self):
+        
+        ret = ";".join([opt for opt in Configuration.PROPERTIES if getattr(self, opt)]) + ";"
+        
+        ret += self.frequency + ";"
+        ret += self.gtype + ";"
+        
+        if self.accounts is not None:
+            lst = self.accounts
+            prefix = "acc"
+        else:
+          lst = self.subcategories
+          prefix = "cat"
+        ret += prefix + "[%s]" % "/".join([str(x) for x in lst]) + ";"
+        
+        ret += "d1[%s];" % self.startD.strftime('%Y/%m/%d')
+        ret += "d2[%s];" % self.stopD.strftime('%Y/%m/%d') 
+        
+        return "{%s}" % ret
+    
+    @staticmethod
+    def restore_from_string(string, target):
+        conf = Configuration()
+        
+        string = string[1:-1] # {}
+        
+        for part in string.split(";"):
+            print part
+            if part in Configuration.PROPERTIES:
+                setattr(conf, part, True)
+            elif part in ("day", "month", "all"):
+                conf.frequency = part
+            elif part in ("pie", "line", "3d curves"):
+                conf.gtype = part
+            elif part[:3] in ("acc", "cat"):
+                print part
+                lst = part[4:-1].split("/")
+                print ">>", lst
+                if part[:3] == "acc":
+                    conf.accounts = lst
+                    conf.subcategories = None
+                else:
+                    conf.accounts = None
+                    conf.subcategories = lst
+                    
+            elif part.startswith("d1[") or part.startswith("d2["):
+                date = datetime.datetime.strptime(part[3:-1], '%Y/%m/%d')
+                if part.startswith("d1["):
+                    conf.startD = date
+                else:
+                    conf.stopD = date
+        conf.restore(target)
         
     def restore(self, target):
         target.maths_cb.setChecked(self.math)
@@ -762,7 +833,6 @@ class Configuration:
         
         target.change_AccCat()
         
-        print self.frequency
         if self.frequency == "all":
             to_select = target.radioAll
         elif self.frequency == "month":
@@ -773,15 +843,26 @@ class Configuration:
         to_select.setChecked(True)
         
         target.listSelected.clear()
-        for uid, name in selected.items():
-            item = QListWidgetItem(name)
-            item.setData(Qt.UserRole, uid)
-            target.listSelected.addItem(item)
+        
+        for uid in selected:
+            for i in  range(srcList.count()):
+                item = srcList.item(i)
+                data = str(item.data(Qt.UserRole).toPyObject().values()[0])
+                
+                if data != uid:
+                    item = None
+                    continue
+                item.setSelected(True)
+                break
+            if item is None:
+                print "Couldn't find key '%s'" % uid
+                continue
             
-            try:
-                srcList.findItems(QString(name), Qt.MatchFlags(Qt.MatchExactly))[0].setSelected(True)
-            except IndexError:
-                pass
+            name = item.text()
+            
+            new_item = QListWidgetItem(name)
+            new_item.setData(Qt.UserRole, uid)
+            target.listSelected.addItem(new_item)
                 
         target.on_draw()
         
