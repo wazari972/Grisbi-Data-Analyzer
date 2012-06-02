@@ -213,6 +213,7 @@ class AppForm(QMainWindow):
             item = self.listSelected.item(item_idx)
             uid = item.data(Qt.UserRole).toPyObject()
             name = item.text()
+            print "draw",  item_idx, str(uid), str(name)
             selected[str(uid)] = str(name)
             item.setData(Qt.BackgroundRole, colors.next())
             
@@ -245,6 +246,7 @@ class AppForm(QMainWindow):
         
         tm = MyTableModel(values, header, selected.keys() if not accu else ["All"], frequence) 
         self.tableMath.setModel(tm)
+        self.tableMathModel = tm
         
         self.tableMath.setShowGrid(False)
         
@@ -391,6 +393,7 @@ class AppForm(QMainWindow):
         #self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
         self.tableMath = QTableView()
+        self.tableMathModel = None
         
         # Other GUI controls
         #         
@@ -548,14 +551,16 @@ class AppForm(QMainWindow):
         
         self.add_actions(self.help_menu, (about_action,))
         
-    def save_plot(self):
-        file_choices = "PNG (*.png)"
-        
-        path = unicode(QFileDialog.getSaveFileName(self, 
-                        'Save file', '', 
-                        file_choices))
+    def save_plot(self, path=None):
+        if path is None:
+            file_choices = "PNG (*.png)"
+            
+            path = unicode(QFileDialog.getSaveFileName(self, 
+                            'Save file', '', 
+                            file_choices))
         if path:
             self.canvas.print_figure(path, dpi=self.dpi)
+            return path
             
     def open_grisbi(self, initial=False):
         file_choices = "Grisbi Account (*.gsb)"
@@ -624,8 +629,11 @@ class AppForm(QMainWindow):
         if path:
             with open(path, "r") as inputfile:
                 conf_str = inputfile.read()
-                Configuration.restore_from_string(conf_str, self)
-                
+                self.load_config(conf_str)
+    
+    def load_config(self, conf_str):
+        Configuration.restore_from_string(conf_str, self)
+        
     def add_actions(self, target, actions):
         for action in actions:
             if action is None:
@@ -667,12 +675,6 @@ def get_next_color(count):
     
     for i in range(count):
         yield scalarMap.to_rgba(i)
-
-def main():
-    app = QApplication(sys.argv)
-    form = AppForm()
-    form.show()
-    app.exec_()
 
 class MyTableModel(QAbstractTableModel): 
     def __init__(self, values, header, groups, frequence): 
@@ -786,7 +788,6 @@ class Configuration:
         string = string[1:-1] # {}
         
         for part in string.split(";"):
-            print part
             if part in Configuration.PROPERTIES:
                 setattr(conf, part, True)
             elif part in ("day", "month", "all"):
@@ -794,9 +795,7 @@ class Configuration:
             elif part in ("pie", "line", "3d curves"):
                 conf.gtype = part
             elif part[:3] in ("acc", "cat"):
-                print part
                 lst = part[4:-1].split("/")
-                print ">>", lst
                 if part[:3] == "acc":
                     conf.accounts = lst
                     conf.subcategories = None
@@ -843,31 +842,34 @@ class Configuration:
         to_select.setChecked(True)
         
         target.listSelected.clear()
-        
+        print "init counter", target.listSelected.count()
         for uid in selected:
             for i in  range(srcList.count()):
                 item = srcList.item(i)
-                data = str(item.data(Qt.UserRole).toPyObject().values()[0])
+                curr_uid = str(item.data(Qt.UserRole).toPyObject().values()[0])
                 
-                if data != uid:
-                    item = None
+                if curr_uid != uid:
                     continue
+                
+                print "found", curr_uid
+                print "counter", target.listSelected.count()
                 item.setSelected(True)
+                print "counter", target.listSelected.count()
                 break
-            if item is None:
+            else:
                 print "Couldn't find key '%s'" % uid
-                continue
-            
-            name = item.text()
-            
-            new_item = QListWidgetItem(name)
-            new_item.setData(Qt.UserRole, uid)
-            target.listSelected.addItem(new_item)
                 
         target.on_draw()
         
 def add_item_to_cbox(cbox, name, data):
     cbox.addItem(name, QVariant(data))
+
+    
+def main():
+    app = QApplication(sys.argv)
+    form = AppForm()
+    form.show()
+    app.exec_()
     
 if __name__ == "__main__":
     main()
