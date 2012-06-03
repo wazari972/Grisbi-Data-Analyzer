@@ -4,6 +4,7 @@
 DEFAULT_ACCOUNT = "in/kevin.gsb"
 
 import sys, os, random
+import os.path
 import datetime
 from collections import OrderedDict
 import StringIO
@@ -23,15 +24,16 @@ from matplotlib import dates as mdates
 import matplotlib.cm as cm
 
 from GuiGrisbi import GrisbiDataProvider
+import Report
 
 WINDOW_NAME = 'Grisbi Data Plotter: %s'
 
 class AppForm(QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, app=None):
         QMainWindow.__init__(self, parent)
         
         self.create_menu()
-        
+        self.app = app
         self.src = None
         try:
             path = DEFAULT_ACCOUNT
@@ -166,7 +168,9 @@ class AppForm(QMainWindow):
             self.radioAll.setChecked(True)
             
         self.invert_cb.setDisabled(self.radioAccount.isChecked())
-        
+        if self.radioAccount.isChecked():
+            self.invert_cb.setChecked(False)
+            
         if not no_reset:
             self.listSelected.clear()
             
@@ -309,7 +313,8 @@ class AppForm(QMainWindow):
             self.canvas.draw()
         
         if "pie" in gtype:
-            self.axes.pie(pie_values, labels=labels, autopct='%1.0f%%', shadow=True)
+            the_labels = labels if legend else None
+            self.axes.pie(pie_values, labels=the_labels, autopct='%1.0f%%', shadow=True)
         
         if "3d curves" in gtype:
             
@@ -546,11 +551,13 @@ class AppForm(QMainWindow):
         open_config_action = self.create_action("&Open configuration",
                             shortcut="Ctrl+Shift+O", slot=self.open_config)
         
-        info_cat = self.create_action("&Info categories", slot=self.info_categories)
-        info_acc = self.create_action("&Info accounts", slot=self.info_accounts)
-        info_opt = self.create_action("&Info options", slot=self.info_options)
+        info_cat = self.create_action("Info &categories", slot=self.info_categories)
+        info_acc = self.create_action("Info &accounts", slot=self.info_accounts)
+        info_opt = self.create_action("Info &options", slot=self.info_options)
         
-        self.add_actions(self.report_menu, (info_config_action, open_config_action, save_config_action, None, info_cat, info_acc, info_opt))
+        info_opt = self.create_action("&Build report", slot=self.build_report)
+        
+        self.add_actions(self.report_menu, (info_config_action, open_config_action, save_config_action, None, info_cat, info_acc, None, info_opt))
         
         self.help_menu = self.menuBar().addMenu("&Help")
         about_action = self.create_action("&About", 
@@ -558,6 +565,26 @@ class AppForm(QMainWindow):
         
         self.add_actions(self.help_menu, (about_action,))
     
+    def build_report(self):
+        file_choices = "Jinga template (*.jing)"
+        
+        source_name = unicode(QFileDialog.getOpenFileName(self, 
+            'Open template', '', 
+            file_choices))
+        
+        report_name = ".".join(source_name.split("/")[-1].split(".")[:-1])
+        report_dir = source_name.split("/")[:-1]
+        target_name = unicode(QFileDialog.getSaveFileName(self, 
+                            'Save report', "%s/%s" % (report_dir, report_name), 
+                            'Report file (%s)' % report_name))
+                            
+        splash = QSplashScreen()
+        splash.showMessage(QString("coucou"))
+        self.app.processEvents()
+        Report.to_transform(self, source_name, target_name)
+        splash.close()
+        QMessageBox.about(self, "Report generated", "Report saved into '%s'" % target_name)
+
     def info_categories(self):
         dct = self.info_cat_acc(self.listCat)
         self.info_popup(dct, "Categories identifiers")
@@ -579,7 +606,6 @@ class AppForm(QMainWindow):
         options = {"Legend":"legend", "Inverted": "invert"}
         self.info_popup(options, "Options keywords") 
         
-    
     def info_popup(self, dct, title):
         msg = "\n".join(["%s --> %s" % (name, opt) for name, opt in dct.items()])
         QMessageBox.about(self, title, msg)
@@ -916,7 +942,7 @@ def add_item_to_cbox(cbox, name, data):
     
 def main():
     app = QApplication(sys.argv)
-    form = AppForm()
+    form = AppForm(app=app)
     form.show()
     app.exec_()
     

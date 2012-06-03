@@ -1,0 +1,53 @@
+{% for month in months() %}
+    <div>
+        <h1> {{ format_month(month, "%b %Y") }}</h1>
+        {% set graph = build_graph("{fill;line;all;accu;invert;cat[6.12/6.9/6.5/6.11];dm[%s];}" % month) %}
+        {% set graph2 = build_graph("{fill;line;day;invert;cat[6.12/6.9/6.5/6.11];dm[%s];}" % month) %}
+        {% set graph3 = build_graph("{fill;line;all;invert;cat[6.12/6.9/6.5/6.11];dm[%s];}" % month, no_graph=True) %}
+        
+        {% set graph_pie = build_graph("{pie;all;invert;cat[6.12/6.9/6.5/6.11];dm[%s];}" % month) %}
+        
+        <table>
+            <tr>
+                <td><img src="{{ graph_pie.img_path }}" title="{{ graph_pie.src }}" /><td>
+                <td>
+                    <div>
+                        <table style="text-align:left;">
+                        {% for entry in graph.legend.values() %}
+                            {% if entry.color is not none %}
+                            <tr><th>{{ entry.name }}</th><td style="background-color:rgb{{ entry.color[0], entry.color[1], entry.color[2] }};">&nbsp;&nbsp;&nbsp;&nbsp;</td></tr> 
+                            {% endif %}
+                        {% endfor %}
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
+                <td><img src="{{ graph2.img_path }}" title="{{ graph2.src }}" /><td>
+            </tr>
+        </table>
+        
+        <div>
+            <table>
+            <tr>
+                {% for uid in graph3.maths.uids %}
+                  <td>
+                    <h3> {{ graph3.legend[uid].name }}</h3>
+                    <table style="text-align:right;">
+                    {% for name in graph3.maths.names %}
+                        <tr>
+                            <th>{{ name }}</th>
+                            {% for date in graph3.maths.dates %}
+                                <td> {{ "%.2f" % graph3.maths.values[uid][date][name]}}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                  </td>
+                {% endfor %}
+            </tr>
+            </table>
+        </div>
+    </div>
+{% endfor %}
