@@ -72,10 +72,10 @@ class AppForm(QMainWindow):
         where_lbl.setText((self.startD if is_start else self.stopD).strftime('%Y/%m/%d'))
         
     def set_startstop_dates(self):
-        firstD, lastD = self.src.get_first_last_date()
+        self.firstD, self.lastD = self.src.get_first_last_date()
         
-        self.set_startD(str(firstD))
-        self.set_stopD(str(lastD))
+        self.set_startD(str(self.firstD))
+        self.set_stopD(str(self.lastD))
         
         self.cBoxDate.clear()
         
@@ -194,26 +194,26 @@ class AppForm(QMainWindow):
         
         legend = self.legend_cb.isChecked()
         inverted = self.invert_cb.isChecked()
-        frequence = None
+        frequency = None
         if self.radioMonth.isChecked():
-            frequence = "month"
+            frequency = "month"
         elif self.radioDay.isChecked():
-            frequence = "day"
-            
+            frequency = "day"
+        
         accu = self.accu_cb.isChecked()
         fill = self.fill_cb.isChecked()
         
         if "pie" in gtype:
-            frequence = None
+            frequency = None
         
         count = self.listSelected.count()
         colors = get_next_qt_color(count)
         selected = OrderedDict()
+        
         for item_idx in xrange(count):
             item = self.listSelected.item(item_idx)
             uid = item.data(Qt.UserRole).toPyObject()
             name = item.text()
-            print "draw",  item_idx, str(uid), str(name)
             selected[str(uid)] = str(name)
             item.setData(Qt.BackgroundRole, colors.next())
             
@@ -230,7 +230,7 @@ class AppForm(QMainWindow):
             return date.year, date.month, date.day
         
         print "Get the data"
-        data = self.src.get_data(inverted, frequence, accu, datetime_to_datelist(self.startD), datetime_to_datelist(self.stopD), subcategories=subcategories, accounts=accounts)
+        data = self.src.get_data(inverted, frequency, accu, datetime_to_datelist(self.startD), datetime_to_datelist(self.stopD), subcategories=subcategories, accounts=accounts)
         print "------------"
         
         graphData, mathData = data["graph"], data["maths"]
@@ -244,13 +244,13 @@ class AppForm(QMainWindow):
             header = []
         values = mathData
         
-        tm = MyTableModel(values, header, selected.keys() if not accu else ["All"], frequence) 
+        tm = MyTableModel(values, header, selected.keys() if not accu else ["All"], frequency) 
         self.tableMath.setModel(tm)
         self.tableMathModel = tm
         
         self.tableMath.setShowGrid(False)
         
-        if frequence is None:
+        if frequency is None:
             self.tableMath.verticalHeader().setVisible(False)
         else:
             self.tableMath.verticalHeader().setVisible(True)
@@ -527,12 +527,6 @@ class AppForm(QMainWindow):
         
         save_png_action = self.create_action("&Save plot",
             shortcut="Ctrl+S", slot=self.save_plot)
-            
-        save_config_action = self.create_action("&Save configuration",
-            shortcut="Ctrl+Shift+S", slot=self.save_config)
-        
-        open_config_action = self.create_action("&Open configuration",
-            shortcut="Ctrl+Shift+O", slot=self.open_config)
         
         quit_action = self.create_action("&Quit", slot=self.close, 
             shortcut="Ctrl+Q")
@@ -542,14 +536,53 @@ class AppForm(QMainWindow):
         self.add_actions(self.file_menu, 
                             (open_grisbi_action, None, 
                             save_png_action, None, 
-                            info_config_action, open_config_action, save_config_action, None, 
                             quit_action))
+        
+        self.report_menu = self.menuBar().addMenu("&Report")
+        
+        save_config_action = self.create_action("&Save configuration",
+                        shortcut="Ctrl+Shift+S", slot=self.save_config)
+        
+        open_config_action = self.create_action("&Open configuration",
+                            shortcut="Ctrl+Shift+O", slot=self.open_config)
+        
+        info_cat = self.create_action("&Info categories", slot=self.info_categories)
+        info_acc = self.create_action("&Info accounts", slot=self.info_accounts)
+        info_opt = self.create_action("&Info options", slot=self.info_options)
+        
+        self.add_actions(self.report_menu, (info_config_action, open_config_action, save_config_action, None, info_cat, info_acc, info_opt))
         
         self.help_menu = self.menuBar().addMenu("&Help")
         about_action = self.create_action("&About", 
             shortcut='F1', slot=self.on_about)
         
         self.add_actions(self.help_menu, (about_action,))
+    
+    def info_categories(self):
+        dct = self.info_cat_acc(self.listCat)
+        self.info_popup(dct, "Categories identifiers")
+    
+    def info_accounts(self):
+        dct = self.info_cat_acc(self.listAcc)
+        self.info_popup(dct, "Account identifiers")
+    
+    def info_cat_acc(self, lst):
+        dct = OrderedDict()
+        for item_idx in xrange(lst.count()):
+            item = lst.item(item_idx)
+            uid = str(item.data(Qt.UserRole).toPyObject().values()[0])
+            name = str(item.text())
+            dct[name] = uid
+        return dct
+        
+    def info_options(self):
+        options = {"Legend":"legend", "Inverted": "invert"}
+        self.info_popup(options, "Options keywords") 
+        
+    
+    def info_popup(self, dct, title):
+        msg = "\n".join(["%s --> %s" % (name, opt) for name, opt in dct.items()])
+        QMessageBox.about(self, title, msg)
         
     def save_plot(self, path=None):
         if path is None:
@@ -577,9 +610,9 @@ class AppForm(QMainWindow):
     
     def current_config(self):
         conf_str = str(self.create_config())
-        Configuration.restore_from_string(conf_str, self)
-        QMessageBox.information(self, "Current configuration", str(conf_str), "Thanks")
-        
+
+        QMessageBox.information(self, "Current configuration", str(conf_str), "OK")
+        print str(conf_str)
         
     def create_config(self):
         selected = []
@@ -596,7 +629,6 @@ class AppForm(QMainWindow):
             subcategories = selected
         frequency = "month" if self.radioMonth.isChecked() else "day" if self.radioDay.isChecked() else "all"
         conf = Configuration(
-            math=self.maths_cb.isChecked(),
             accu=self.accu_cb.isChecked(),
             fill=self.fill_cb.isChecked(),
             invert=self.invert_cb.isChecked(),
@@ -677,7 +709,7 @@ def get_next_color(count):
         yield scalarMap.to_rgba(i)
 
 class MyTableModel(QAbstractTableModel): 
-    def __init__(self, values, header, groups, frequence): 
+    def __init__(self, values, header, groups, frequency): 
         """ datain: a list of lists
             headerdata: a list of strings
         """
@@ -689,7 +721,7 @@ class MyTableModel(QAbstractTableModel):
         self.dates = values["date"]
         self.nb_groups = len(groups)
         self.group_colors = [c for c in get_next_qt_color(self.nb_groups)]
-        self.frequence = frequence
+        self.frequency = frequency
         self.nb_parts = len(self.values.values()[0])
         
     def columnCount(self, parent):
@@ -710,9 +742,9 @@ class MyTableModel(QAbstractTableModel):
                 date = datetime.datetime(*self.dates[which_part])
                 
                 if which_group_idx == 0:
-                    if self.frequence == "day":
+                    if self.frequency == "day":
                         date = date.strftime('%Y/%m/%d')
-                    elif self.frequence == "month":
+                    elif self.frequency == "month":
                         date = date.strftime('%Y %m')
                     else:
                         date = ""
@@ -742,11 +774,10 @@ class MyTableModel(QAbstractTableModel):
         return QVariant(("%.1f" % value) if value is not None and int(value) != 0 else "")
 
 class Configuration:
-    PROPERTIES = ("math", "legend", "fill", "accu", "invert")
+    PROPERTIES = ("legend", "fill", "accu", "invert")
     
-    def __init__(self, math=False, legend=False, frequency=False, accu=False, fill=False, invert=False, 
+    def __init__(self, legend=False, frequency=False, accu=False, fill=False, invert=False, 
                        startD=None, stopD=None, gtype=None, accounts=None, subcategories=None):
-        self.math = math
         self.legend = legend
         self.accu = accu
         self.fill = fill
@@ -784,13 +815,14 @@ class Configuration:
     @staticmethod
     def restore_from_string(string, target):
         conf = Configuration()
-        
+        print "import ",string
         string = string[1:-1] # {}
         
         for part in string.split(";"):
             if part in Configuration.PROPERTIES:
                 setattr(conf, part, True)
             elif part in ("day", "month", "all"):
+                print "frequency", part
                 conf.frequency = part
             elif part in ("pie", "line", "3d curves"):
                 conf.gtype = part
@@ -803,16 +835,36 @@ class Configuration:
                     conf.accounts = None
                     conf.subcategories = lst
                     
-            elif part.startswith("d1[") or part.startswith("d2["):
-                date = datetime.datetime.strptime(part[3:-1], '%Y/%m/%d')
-                if part.startswith("d1["):
-                    conf.startD = date
+            elif part.startswith("d1[") or part.startswith("d2[") or part.startswith("dm[") :
+                str_date = part[3:-1]
+                if part.startswith("dm["):
+                    startD = datetime.datetime.strptime(str_date+"/1", '%Y/%m/%d')
+                    last_day = calendar.monthrange(startD.year, startD.month)[1]
+                    
+                    stopD = datetime.datetime.strptime(str_date+"/%d" % last_day, '%Y/%m/%d')
+                    
+                    conf.startD = startD
+                    conf.stopD = stopD
                 else:
-                    conf.stopD = date
+                    date = datetime.datetime.strptime(str_date, '%Y/%m/%d')
+                    if part.startswith("d1["):
+                        conf.startD = date
+                    else:
+                        conf.stopD = date
+            else:
+                if part != "":
+                    print "Chunk '%s' not recognized" % part
+        
+        if conf.startD is None or conf.stopD is None:
+            if conf.startD is None:
+                conf.startD = datetime.datetime.strptime(str(target.firstD), '%Y/%m/%d')
+            if conf.stopD is None:
+                conf.stopD = datetime.datetime.strptime(str(target.lastD), '%Y/%m/%d')
+            
+        
         conf.restore(target)
         
     def restore(self, target):
-        target.maths_cb.setChecked(self.math)
         target.accu_cb.setChecked(self.accu)
         target.fill_cb.setChecked(self.fill)
         target.invert_cb.setChecked(self.invert)
@@ -842,7 +894,7 @@ class Configuration:
         to_select.setChecked(True)
         
         target.listSelected.clear()
-        print "init counter", target.listSelected.count()
+        print len(selected), "items to add"
         for uid in selected:
             for i in  range(srcList.count()):
                 item = srcList.item(i)
@@ -850,11 +902,8 @@ class Configuration:
                 
                 if curr_uid != uid:
                     continue
-                
-                print "found", curr_uid
-                print "counter", target.listSelected.count()
                 item.setSelected(True)
-                print "counter", target.listSelected.count()
+                target.change_listCatAcc(srcList)
                 break
             else:
                 print "Couldn't find key '%s'" % uid
