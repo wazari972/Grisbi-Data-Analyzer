@@ -1,0 +1,73 @@
+<h1>Epargne</h1>
+
+<h2>Epargne long et cours</h2>
+{% set graph = build_graph("{fill;accu;all;line;acc[7/5/4/3]}") %}
+<table>
+    <tr>
+        <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
+        <td>
+            <div>
+                <table style="text-align:left;">
+                {% for entry in graph.legend.values() %}
+                    {% if entry.color is not none %}
+                    <tr><th>{{ entry.name }}</th><td style="background-color:rgb{{ entry.color[0], entry.color[1], entry.color[2] }};">&nbsp;&nbsp;&nbsp;&nbsp;</td></tr> 
+                    {% endif %}
+                {% endfor %}
+                </table>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        {% for uid in graph.maths.uids %}
+            <td>
+            <h3> {{ graph.legend[uid].name }}</h3>
+            <table style="text-align:right;">
+            {% for name in graph.maths.names %}
+                <tr>
+                    <th>{{ name }}</th>
+                    {% for date in graph.maths.dates %}
+                        <td> {{ "%.2f" % graph.maths.values[uid][date][name]}}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+            </td>
+        {% endfor %}
+    </tr>
+</table>
+
+<h2>Epargne long</h2>
+{% set graph2 = build_graph("{fill;accu;all;line;acc[7/5]}") %}
+<table>
+    <tr>
+        <td><img src="{{ graph2.img_path }}" title="{{ graph2.src }}" /><td>
+        <td>
+            <div>
+                <table style="text-align:left;">
+                {% for entry in graph2.legend.values() %}
+                    {% if entry.color is not none %}
+                    <tr><th>{{ entry.name }}</th><td style="background-color:rgb{{ entry.color[0], entry.color[1], entry.color[2] }};">&nbsp;&nbsp;&nbsp;&nbsp;</td></tr> 
+                    {% endif %}
+                {% endfor %}
+                </table>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        {% for uid in graph2.maths.uids %}
+            <td>
+            <h3> {{ graph2.legend[uid].name }}</h3>
+            <table style="text-align:right;">
+            {% for name in graph.maths.names %}
+                <tr>
+                    <th>{{ name }}</th>
+                    {% for date in graph2.maths.dates %}
+                        <td> {{ "%.2f" % graph2.maths.values[uid][date][name]}}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+            </td>
+        {% endfor %}
+    </tr>
+</table>
