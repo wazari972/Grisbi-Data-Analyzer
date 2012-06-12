@@ -1,4 +1,6 @@
-import os, errno
+#!/usr/bin/env python2
+
+import os, errno, sys
 
 from jinja2 import Template, Environment, PackageLoader
 
@@ -68,7 +70,7 @@ class Env:
         
         maths = Maths(uids=uids, names=self.form.tableMathModel.header, dates=dates, values=values)
         
-        return Graph(img_path, legend, maths, conf_str)
+        return Graph("/".join(img_path.split("/")[-2:]), legend, maths, conf_str)
         
 class Graph:
     def __init__(self, img_path, legend, maths, src):
@@ -83,12 +85,12 @@ class Maths:
         self.dates = dates
         self.uids = uids
         self.values = values
-    
-def main():
-    app = QApplication(sys.argv)
-    form = AppForm()
-    final = to_transform(form, "templates/first.html.jing", "/tmp/grisbi/first.html")
 
+def euro(nb):
+    if nb == 0:
+        return "."
+    else:
+        return "%.2f" % nb
     
 def to_transform(form, source_name, target_name):
     with open(source_name, "r") as innput:
@@ -102,7 +104,7 @@ def to_transform(form, source_name, target_name):
     
     env = Env(form, build_prefix)
     
-    final = template.render(build_graph=env.build_graph, months=env.months, format_month=env.format_month)
+    final = template.render(build_graph=env.build_graph, months=env.months, format_month=env.format_month, euro=euro)
     with open(target_name, "w") as output:
         output.write(final)
 
@@ -114,5 +116,21 @@ def mkdir_p(path):
             pass
         else: raise
 
+def main():
+    if len(sys.argv) < 2:
+        print "Usage: %s template_filename [target_name]" % sys.argv[0]
+        return
+    source_name = sys.argv[1]
+    if len(sys.argv) < 3:
+        target_name = source_name.split(".jing")[0]
+    else:
+        target_name = sys.argv[2]
+        
+    print "Transform '%s to' '%s'" % (source_name, target_name)
+    
+    app = QApplication(sys.argv)
+    form = AppForm()
+    final = to_transform(form, source_name, target_name)
+    print "Successfully transformed into '%s'" % target_name
 if __name__ == "__main__":
     main()

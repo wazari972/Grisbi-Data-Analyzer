@@ -906,6 +906,15 @@ class Configuration:
         target.radioAccount.setChecked(self.accounts is not None)
         target.radioCategory.setChecked(self.subcategories is not None)
         selected = self.subcategories if self.subcategories is not None else self.accounts
+        
+        # unselect all here
+        for item_idx in xrange(target.listCat.count()):
+            item = target.listCat.item(item_idx)
+            item.setSelected(False)
+        for item_idx in xrange(target.listAcc.count()):
+            item = target.listAcc.item(item_idx)
+            item.setSelected(False)
+            
         srcList = target.listCat if self.subcategories is not None else target.listAcc
         
         target.change_AccCat()

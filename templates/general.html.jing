@@ -2,6 +2,163 @@
 
 <h2>Epargne long et cours</h2>
 {% set graph = build_graph("{fill;accu;all;line;acc[7/5/4/3]}") %}
+{% set graph_math = graph %}
+<table>
+    <tr>
+        <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
+        <td>
+            <div>
+                <table style="text-align:left;">
+                {% for entry in graph.legend.values() %}
+                    {% if entry.color is not none %}
+                    <tr><th>{{ entry.name }}</th><td style="background-color:rgb{{ entry.color[0], entry.color[1], entry.color[2] }};">&nbsp;&nbsp;&nbsp;&nbsp;</td></tr> 
+                    {% endif %}
+                {% endfor %}
+                </table>
+            </div>
+        </td>
+        {% for uid in graph.maths.uids %}
+            <td>
+                <table style="text-align:right;">
+                {% for name in graph.maths.names %}
+                    <tr>
+                        <th>{{ name }}</th>
+                        {% for date in graph.maths.dates %}
+                            <td> {{ euro(graph.maths.values[uid][date][name])}}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </table>
+            </td>
+        {% endfor %}
+    </tr>
+</table>
+
+<h2>Epargne long</h2>
+{% set graph = build_graph("{fill;accu;all;line;acc[7/5]}") %}
+{% set graph_math = graph %}
+<table>
+    <tr>
+        <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
+        {% for uid in graph_math.maths.uids %}
+            <td>
+                <table style="text-align:right;">
+                    {% for name in graph_math.maths.names %}
+                        <tr>
+                            <th>{{ name }}</th>
+                            {% for date in graph_math.maths.dates %}
+                            <td> {{ euro(graph_math.maths.values[uid][date][name])}}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </table>
+            </td>
+        {% endfor %}
+    </tr>
+</table>
+
+<h1>Rentrees d'argent</h1>
+
+<h2>Salaire</h2>
+{% set graph = build_graph("{fill;month;line;cat[4.1]}") %}
+{% set graph_math = build_graph("{fill;all;line;cat[4.1]}") %}
+
+<table>
+    <tr>
+        <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
+        {% for uid in graph_math.maths.uids %}
+            <td>
+                <h3> {{ graph_math.legend[uid].name }}</h3>
+                <table style="text-align:right;">
+                {% for name in graph_math.maths.names %}
+                    <tr>
+                        <th>{{ name }}</th>
+                        {% for date in graph_math.maths.dates %}
+                            <td> {{ euro(graph_math.maths.values[uid][date][name])}}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </table>
+            </td>
+        {% endfor %}
+    </tr>
+</table>
+
+{% set graph_math = graph %}
+
+{% for uid in graph_math.maths.uids %}
+    <table style="text-align:right;">
+    {% for name in graph_math.maths.names %}
+        <tr>
+            <th>{{ name }}</th>
+            {% for date in graph_math.maths.dates %}
+                <td> {{ euro(graph_math.maths.values[uid][date][name])}}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+{% endfor %}
+
+<h1>Depences</h1>
+
+<h2>Majeurs</h2>
+
+{% set graph_pie  = build_graph("{fill;accu;invert;all;pie;cat[8.2/6.9/26.1/6.12/6.5/8.1]}") %}
+{% set graph_line = build_graph("{fill;accu;invert;all;line;cat[8.2/6.9/26.1/6.12/6.5/8.1]}") %}
+{% set graph_st   = build_graph("{fill;accu;invert;month;line;cat[4.1/8.2/6.9/26.1/6.12/6.5/8.1]}") %}
+{% set graph_math1 = build_graph("{fill;invert;accu;month;line;cat[8.2/6.9/26.1/6.12/6.5/8.1];}", no_graph=True) %}
+{% set graph_math2 = build_graph("{fill;invert;month;line;cat[8.2/6.9/26.1/6.12/6.5/8.1];}", no_graph=True) %}
+<table>
+    <tr>
+        <td><img src="{{ graph_pie.img_path }}" title="{{ graph_pie.src }}" /><td>
+        <td><img src="{{ graph_line.img_path }}" title="{{ graph_line.src }}" /><td>
+    </tr>
+    </tr>
+        <td><img src="{{ graph_st.img_path }}" title="{{ graph_st.src }}" /><td>
+        <td>
+            <div>
+                <table style="text-align:left;">
+                {% for entry in graph_line.legend.values() %}
+                    {% if entry.color is not none %}
+                        <tr><th>{{ entry.name }}</th><td style="background-color:rgb{{ entry.color[0], entry.color[1], entry.color[2] }};">&nbsp;&nbsp;&nbsp;&nbsp;</td></tr> 
+                    {% endif %}
+                {% endfor %}
+                </table>
+            </div>
+        </td>
+    </tr>
+</table>
+
+<table style="text-align:right;">
+{% for graph_math in (graph_math1, graph_math2) %}
+    {% for uid in graph_math.maths.uids %}
+        <tr>
+            <th> {{ graph_math.legend[uid].name }}</th>
+        </tr>
+        <tr>
+        <th></th>
+        {% for date in graph_math.maths.dates %}
+            <th> {{ date }}</th>
+        {% endfor %}
+        </tr>
+        {% for name in graph_math.maths.names %}
+            <tr>
+                <th>{{ name }}</th>
+                {% for date in graph_math.maths.dates %}
+                    <td> {{ euro(graph_math.maths.values[uid][date][name])}}</td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    {% endfor %}
+{% endfor %}
+</table>
+
+<h2>Vacances</h2>
+
+{% set graph = build_graph("{fill;accu;invert;month;line;cat[28.2/28.7/28.5/28.4/28.1/4.3/6.4];d1[2011/01/01];d2[2012/05/31];}") %}
+{% set graph_math1 = graph %}
+{% set graph_math2 = build_graph("{fill;invert;month;line;cat[28.2/28.7/28.5/28.4/28.1/4.3/6.4]}", no_graph=True) %}
+
 <table>
     <tr>
         <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
@@ -17,34 +174,40 @@
             </div>
         </td>
     </tr>
-    <tr>
-        {% for uid in graph.maths.uids %}
-            <td>
-            <h3> {{ graph.legend[uid].name }}</h3>
-            <table style="text-align:right;">
-            {% for name in graph.maths.names %}
-                <tr>
-                    <th>{{ name }}</th>
-                    {% for date in graph.maths.dates %}
-                        <td> {{ "%.2f" % graph.maths.values[uid][date][name]}}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </table>
-            </td>
-        {% endfor %}
-    </tr>
 </table>
 
-<h2>Epargne long</h2>
-{% set graph2 = build_graph("{fill;accu;all;line;acc[7/5]}") %}
+<table style="text-align:right;">
+{% for graph_math in (graph_math1, graph_math2) %}
+    {% for uid in graph_math.maths.uids %}
+        <tr>
+            <th> {{ graph_math.legend[uid].name }}</th>
+        </tr>
+        {% for name in graph_math.maths.names %}
+            <tr>
+                <th>{{ name }}</th>
+                {% for date in graph_math.maths.dates %}
+                    <td  border=2> {{ euro(graph_math.maths.values[uid][date][name])}}</td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    {% endfor %}
+{% endfor %}
+</table>
+
+<h2>Divers</h2>
+
+{% set graph = build_graph("{fill;accu;invert;all;line;cat[18.12/18.15/21.2/21.3/21.1/21.4/26.3]}") %}
+{% set graph2 = build_graph("{fill;accu;invert;month;line;cat[18.12/18.15/21.2/21.3/21.1/21.4/26.3]}") %}
+{% set graph_math1 = graph2 %}
+{% set graph_math2 = build_graph("{fill;invert;month;line;cat[18.12/18.15/21.2/21.3/21.1/21.4/26.3]}", no_graph=True) %}
 <table>
     <tr>
+        <td><img src="{{ graph.img_path }}" title="{{ graph.src }}" /><td>
         <td><img src="{{ graph2.img_path }}" title="{{ graph2.src }}" /><td>
         <td>
             <div>
                 <table style="text-align:left;">
-                {% for entry in graph2.legend.values() %}
+                {% for entry in graph.legend.values() %}
                     {% if entry.color is not none %}
                     <tr><th>{{ entry.name }}</th><td style="background-color:rgb{{ entry.color[0], entry.color[1], entry.color[2] }};">&nbsp;&nbsp;&nbsp;&nbsp;</td></tr> 
                     {% endif %}
@@ -53,21 +216,22 @@
             </div>
         </td>
     </tr>
-    <tr>
-        {% for uid in graph2.maths.uids %}
-            <td>
-            <h3> {{ graph2.legend[uid].name }}</h3>
-            <table style="text-align:right;">
-            {% for name in graph.maths.names %}
-                <tr>
-                    <th>{{ name }}</th>
-                    {% for date in graph2.maths.dates %}
-                        <td> {{ "%.2f" % graph2.maths.values[uid][date][name]}}</td>
-                    {% endfor %}
-                </tr>
+</table>
+
+<table style="text-align:right;">
+{% for graph_math in (graph_math1, graph_math2) %}
+    {% for uid in graph_math.maths.uids %}
+        <tr>
+            <th> {{ graph_math.legend[uid].name }}</th>
+        </tr>
+        {% for name in graph_math.maths.names %}
+            <tr>
+                <th>{{ name }}</th>
+                {% for date in graph_math.maths.dates %}
+                    <td  border=2> {{ euro(graph_math.maths.values[uid][date][name])}}</td>
                 {% endfor %}
-            </table>
-            </td>
+            </tr>
         {% endfor %}
-    </tr>
+    {% endfor %}
+{% endfor %}
 </table>
