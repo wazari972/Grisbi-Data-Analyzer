@@ -1,9 +1,13 @@
+import os
+
 import lxml
 from lxml import etree
 import Bank
 from Bank import Account, Category, SubCategory, Transaction, Date
 
 def do_import(filename):
+    if not os.path.exists(filename):
+        return
     Grisbi = etree.parse(filename).getroot()
 
     Account.empty()

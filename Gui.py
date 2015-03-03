@@ -1,8 +1,5 @@
 #!/usr/bin/env python2
 
-# comment out if not relevant
-DEFAULT_ACCOUNT = "in/kevin.gsb"
-
 import sys, os, random
 import os.path
 import datetime
@@ -11,12 +8,23 @@ import StringIO
 import pickle
 import calendar
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5 import QtCore, QtGui, QtWidgets
 
+def import_pdb_set_trace():
+  '''Set a tracepoint in the Python debugger that works with Qt'''
+  from PyQt5.QtCore import pyqtRemoveInputHook
+  from pdb import set_trace
+  pyqtRemoveInputHook()
+  set_trace()
+  
 import matplotlib
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+matplotlib.use("Qt5Agg")
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QTAgg as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 from matplotlib.collections import LineCollection
@@ -35,13 +43,16 @@ class AppForm(QMainWindow):
         self.create_menu()
         self.app = app
         self.src = None
-        try:
-            path = DEFAULT_ACCOUNT
-            self.src = GrisbiDataProvider(path)
-            self.set_current_file(path)
-        except NameError:
-            while self.src is None:
-                self.open_grisbi(initial=True)
+        if len(sys.argv) >= 2:
+            path = sys.argv[1]
+            try:
+                self.src = GrisbiDataProvider(path)
+                self.set_current_file(path)
+            except NameError:
+                pass
+        
+        while self.src is None:
+            self.open_grisbi(initial=True)
         
         self.create_main_frame()
         #self.on_draw()
@@ -58,10 +69,10 @@ class AppForm(QMainWindow):
         return self.set_date(self.stopD_lbl, dateTxt, is_start=False)
     
     def set_date(self, where_lbl, dateTxt=None, is_start=False):
-        if dateTxt is not None:
+        if dateTxt:
             date = datetime.datetime.strptime(dateTxt, '%Y/%m/%d')
         else:
-            date = self.cBoxDate.itemData(self.cBoxDate.currentIndex()).toPyObject()
+            date = self.cBoxDate.itemData(self.cBoxDate.currentIndex())
             if date is None:
                 return
         
@@ -100,10 +111,10 @@ class AppForm(QMainWindow):
         current_uids = []
         for item_idx in xrange(self.listSelected.count()):
             item = self.listSelected.item(item_idx)
-            current_uids.append(str(item.data(Qt.UserRole).toPyObject()))
+            current_uids.append(str(item.data(Qt.UserRole)))
         
         for item in fromList.selectedItems():
-            name, uid = [str(x) for x in item.data(Qt.UserRole).toPyObject().items()[0]]
+            name, uid = [str(x) for x in item.data(Qt.UserRole).items()[0]]
             
             if not uid in current_uids:
                 item = QListWidgetItem(name)
@@ -116,7 +127,7 @@ class AppForm(QMainWindow):
             to_remove = []
             for item_idx in range(self.listSelected.count()):
                 item = self.listSelected.item(item_idx)
-                uid = str(item.data(Qt.UserRole).toPyObject())
+                uid = str(item.data(Qt.UserRole))
                 if uid in current_uids:
                     to_remove.append(item_idx)
             
@@ -124,7 +135,7 @@ class AppForm(QMainWindow):
                 self.listSelected.takeItem(item_idx)
             
     def change_GType(self):
-        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
+        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()))
         
         isPie = "pie" in gtype
         isLine = "line" in gtype
@@ -194,7 +205,7 @@ class AppForm(QMainWindow):
     def on_draw(self):
         """ Redraws the figure
         """
-        gtype = str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject())
+        gtype = self.cboxGType.itemData(self.cboxGType.currentIndex())
         
         legend = self.legend_cb.isChecked()
         inverted = self.invert_cb.isChecked()
@@ -216,7 +227,7 @@ class AppForm(QMainWindow):
         
         for item_idx in xrange(count):
             item = self.listSelected.item(item_idx)
-            uid = item.data(Qt.UserRole).toPyObject()
+            uid = item.data(Qt.UserRole)
             name = item.text()
             selected[str(uid)] = str(name)
             item.setData(Qt.BackgroundRole, colors.next())
@@ -403,8 +414,8 @@ class AppForm(QMainWindow):
         # Other GUI controls
         #         
         self.draw_button = QPushButton("&Draw")
-        self.connect(self.draw_button, SIGNAL('clicked()'), self.on_draw)
-        
+        self.draw_button.clicked.connect(self.on_draw)
+            
         self.accu_cb = QCheckBox("Accumulate ?")
         self.accu_cb.setChecked(False)
         
@@ -416,7 +427,7 @@ class AppForm(QMainWindow):
         
         self.maths_cb = QCheckBox("Maths ?")
         self.maths_cb.setChecked(True)
-        self.connect(self.maths_cb, SIGNAL('stateChanged(int)'), self.showHideMaths)
+        self.maths_cb.stateChanged.connect(self.showHideMaths)
         
         self.invert_cb = QCheckBox("Inverted ?")
         self.invert_cb.setChecked(False)
@@ -438,11 +449,11 @@ class AppForm(QMainWindow):
         
         self.cBoxDate = QComboBox()
         self.startD_button = QPushButton("&Start date")
-        self.connect(self.startD_button, SIGNAL('clicked()'), self.set_startD)
+        self.startD_button.clicked.connect(self.set_startD)
         self.startD_lbl = QLabel(self)
         
         self.stopD_button = QPushButton("&Stop date")
-        self.connect(self.stopD_button, SIGNAL('clicked()'), self.set_stopD)
+        self.stopD_button.clicked.connect(self.set_stopD)
         self.stopD_lbl = QLabel(self)
         
         self.set_startstop_dates()
@@ -451,16 +462,16 @@ class AppForm(QMainWindow):
         add_item_to_cbox(self.cboxGType, "Line", "line")
         add_item_to_cbox(self.cboxGType, "Pie", "pie")
         add_item_to_cbox(self.cboxGType, "3D curves", "3d curves")
-        self.connect(self.cboxGType, SIGNAL('currentIndexChanged(QString)'), self.change_GType)
+        self.cboxGType.currentIndexChanged.connect(self.change_GType)
         
         self.listCat = QListWidget()
         self.listCat.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.connect(self.listCat, SIGNAL('itemSelectionChanged()'), self.change_listCat)
+        self.listCat.itemSelectionChanged.connect(self.change_listCat)
         
         self.listAcc = QListWidget()
         self.listAcc.setSelectionMode(QAbstractItemView.ExtendedSelection) 
         self.listAcc.setDisabled(True)
-        self.connect(self.listAcc, SIGNAL('itemSelectionChanged()'), self.change_listAcc)
+        self.listAcc.itemSelectionChanged.connect(self.change_listAcc)
         
         self.listSelected = QListWidget()
         self.listSelected.doubleClicked.connect(self.dclick_listSelected)
@@ -470,9 +481,9 @@ class AppForm(QMainWindow):
         self.grpCatAcc = QGroupBox("Data type")
         self.radioCategory = QRadioButton("Categories", self.grpCatAcc)
         self.radioCategory.setChecked(True)
-        self.connect(self.radioCategory, SIGNAL('clicked()'), self.change_AccCat)
+        self.radioCategory.clicked.connect(self.change_AccCat)
         self.radioAccount = QRadioButton("Accounts", self.grpCatAcc)
-        self.connect(self.radioAccount, SIGNAL('clicked()'), self.change_AccCat)
+        self.radioAccount.clicked.connect(self.change_AccCat)
         
         vboxRadio = QVBoxLayout()
         vboxRadio.addWidget(self.radioCategory)
@@ -529,6 +540,9 @@ class AppForm(QMainWindow):
         
         info_config_action = self.create_action("&Current Configuration",
             shortcut="Ctrl+C", slot=self.current_config)
+
+        draw_action = self.create_action("&Draw", 
+            shortcut='F5', slot=self.on_draw)
         
         save_png_action = self.create_action("&Save plot",
             shortcut="Ctrl+S", slot=self.save_plot)
@@ -539,9 +553,10 @@ class AppForm(QMainWindow):
         QShortcut(QKeySequence("Ctrl+G"), self, self.on_draw)
         
         self.add_actions(self.file_menu, 
-                            (open_grisbi_action, None, 
-                            save_png_action, None, 
-                            quit_action))
+                         (open_grisbi_action, None, 
+                          save_png_action, None,
+                          draw_action, None,
+                          quit_action))
         
         self.report_menu = self.menuBar().addMenu("&Report")
         
@@ -579,7 +594,6 @@ class AppForm(QMainWindow):
                             'Report file (%s)' % report_name))
                             
         splash = QSplashScreen()
-        splash.showMessage(QString("coucou"))
         self.app.processEvents()
         Report.to_transform(self, source_name, target_name)
         splash.close()
@@ -597,8 +611,8 @@ class AppForm(QMainWindow):
         dct = OrderedDict()
         for item_idx in xrange(lst.count()):
             item = lst.item(item_idx)
-            uid = str(item.data(Qt.UserRole).toPyObject().values()[0])
-            name = str(item.text())
+            uid = item.data(Qt.UserRole).values()[0]
+            name = item.text()
             dct[name] = uid
         return dct
         
@@ -644,7 +658,7 @@ class AppForm(QMainWindow):
         selected = []
         for item_idx in xrange(self.listSelected.count()):
             item = self.listSelected.item(item_idx)
-            uid = item.data(Qt.UserRole).toPyObject()
+            uid = item.data(Qt.UserRole)
             selected.append(uid)
         
         if self.radioAccount.isChecked():
@@ -660,7 +674,7 @@ class AppForm(QMainWindow):
             invert=self.invert_cb.isChecked(),
             legend=self.legend_cb.isChecked(),
             frequency=frequency,
-            gtype=str(self.cboxGType.itemData(self.cboxGType.currentIndex()).toPyObject()),
+            gtype=self.cboxGType.itemData(self.cboxGType.currentIndex()),
             startD=self.startD,
             stopD=self.stopD,
             subcategories=subcategories,
@@ -700,15 +714,14 @@ class AppForm(QMainWindow):
                 target.addAction(action)
 
     def create_action(self, text, slot=None, shortcut=None, 
-                      icon=None, checkable=False, 
-                      signal="triggered()"):
+                      icon=None, checkable=False):
         action = QAction(text, self)
         if icon is not None:
             action.setIcon(QIcon(":/%s.png" % icon))
         if shortcut is not None:
             action.setShortcut(shortcut)
         if slot is not None:
-            self.connect(action, SIGNAL(signal), slot)
+            action.triggered.connect(slot)
         if checkable:
             action.setCheckable(True)
         return action
@@ -841,7 +854,6 @@ class Configuration:
     @staticmethod
     def restore_from_string(string, target):
         conf = Configuration()
-        print "import ",string
         string = string[1:-1] # {}
         
         for part in string.split(";"):
@@ -933,7 +945,7 @@ class Configuration:
         for uid in selected:
             for i in  range(srcList.count()):
                 item = srcList.item(i)
-                curr_uid = str(item.data(Qt.UserRole).toPyObject().values()[0])
+                curr_uid = item.data(Qt.UserRole).values()[0]
                 
                 if curr_uid != uid:
                     continue
