@@ -51,8 +51,8 @@ class AppForm(QMainWindow):
             except NameError:
                 pass
         
-        while self.src is None:
-            self.open_grisbi(initial=True)
+        #while self.src is None:
+        #    self.open_grisbi(initial=True)
         
         self.create_main_frame()
         #self.on_draw()
@@ -85,6 +85,9 @@ class AppForm(QMainWindow):
         where_lbl.setText((self.startD if is_start else self.stopD).strftime('%Y/%m/%d'))
         
     def set_startstop_dates(self):
+        if not self.src:
+          return
+        
         self.firstD, self.lastD = self.src.get_first_last_date()
         
         self.set_startD(str(self.firstD))
@@ -245,14 +248,16 @@ class AppForm(QMainWindow):
             return date.year, date.month, date.day
         
         print "Get the data"
-        data = self.src.get_data(inverted, frequency, accu, datetime_to_datelist(self.startD), datetime_to_datelist(self.stopD), subcategories=subcategories, accounts=accounts)
+        data = self.src.get_data(inverted, frequency, accu, datetime_to_datelist(self.startD),
+                                 datetime_to_datelist(self.stopD), subcategories=subcategories,
+                                 accounts=accounts)
         print "------------"
         
         graphData, mathData = data["graph"], data["maths"]
         
         self.tableMath.clearSpans()
-        
-        key = "All" if accu else selected.keys()[0]
+
+        key = "All" if accu or not selected else selected.keys()[0]
         if len(mathData[key]) != 0:
             header = mathData[key][0].keys()
         else:
@@ -367,6 +372,9 @@ class AppForm(QMainWindow):
         print "============"
     
     def populateAccCat(self):
+        if not self.src:
+          return
+        
         def add_item_to_list(lst, name, data):
             item = QListWidgetItem(name)
             item.setData(Qt.UserRole, data)
@@ -583,21 +591,37 @@ class AppForm(QMainWindow):
     def build_report(self):
         file_choices = "Jinga template (*.jing)"
         
-        source_name = unicode(QFileDialog.getOpenFileName(self, 
-            'Open template', '', 
-            file_choices))
-        
+        source_name = QFileDialog.getOpenFileName(self, 'Open template', 'templates', file_choices)
+
+        if not (source_name and source_name[0]):
+          return
+
+        source_name = source_name[0]
         report_name = ".".join(source_name.split("/")[-1].split(".")[:-1])
         report_dir = source_name.split("/")[:-1]
-        target_name = unicode(QFileDialog.getSaveFileName(self, 
-                            'Save report', "%s/%s" % (report_dir, report_name), 
-                            'Report file (%s)' % report_name))
-                            
-        splash = QSplashScreen()
+        target_name = QFileDialog.getSaveFileName(self, 'Save report', "%s/%s" % (report_dir, report_name), 'Report file (%s)' % report_name)
+
+        if not (target_name and target_name[0]):
+          return
+
+        target_name = target_name[0]
+        splash_pix = QPixmap('splash_loading.png')
+        splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
+        splash.setMask(splash_pix.mask())
+        splash.show()
+        
         self.app.processEvents()
         Report.to_transform(self, source_name, target_name)
+        
         splash.close()
-        QMessageBox.about(self, "Report generated", "Report saved into '%s'" % target_name)
+        try:
+          from subprocess import Popen, PIPE
+          p = Popen(['xsel','-pi'], stdin=PIPE)
+          p.communicate(input=target_name)
+          copied = True
+        except:
+          copied = False
+        QMessageBox.about(self, "Report generated", "Report saved into '%s'%s" % (target_name, "" if not copied else " (copied into clipboard)"))
 
     def info_categories(self):
         dct = self.info_cat_acc(self.listCat)
@@ -628,31 +652,40 @@ class AppForm(QMainWindow):
         if path is None:
             file_choices = "PNG (*.png)"
             
-            path = unicode(QFileDialog.getSaveFileName(self, 
-                            'Save file', '', 
-                            file_choices))
-        if path:
-            self.canvas.print_figure(path, dpi=self.dpi)
-            return path
+            path = QFileDialog.getSaveFileName(self, 
+                                               'Save file', '', 
+                                               file_choices)
+            if not (path and path[0]):
+              return
+
+            path = path[0]
+
+        if not path.endswith(".png"): path += ".png"
+        
+        self.canvas.print_figure(path, dpi=self.dpi)
+        return path
             
     def open_grisbi(self, initial=False):
         file_choices = "Grisbi Account (*.gsb)"
-        path = unicode(QFileDialog.getOpenFileName(self, 
-                        'Open file', '', 
-                        file_choices))
-        if path:
-            self.src = GrisbiDataProvider(path)
-            if not initial:
-                self.populateAccCat()
-                self.set_startstop_dates()
-            self.set_current_file(path)
+        path = QFileDialog.getOpenFileName(self, 
+                                           'Open file', '', 
+                                           file_choices)
+        
+        if not os.path.exists(path):
+          return
+        
+        self.src = GrisbiDataProvider(path)
+        if not initial:
+          self.populateAccCat()
+          self.set_startstop_dates()
+        self.set_current_file(path)
+          
         return path
     
     def current_config(self):
         conf_str = str(self.create_config())
-
-        QMessageBox.information(self, "Current configuration", str(conf_str), "OK")
-        print str(conf_str)
+        
+        QMessageBox.information(self, "Current configuration", str(conf_str))
         
     def create_config(self):
         selected = []
@@ -686,22 +719,33 @@ class AppForm(QMainWindow):
         
         file_choices = "Grisbi Graph Configuration (*.ggc)"
         
-        path = unicode(QFileDialog.getSaveFileName(self, 
-                        'Save configuration', '', 
-                        file_choices))
-        if path:
-            with open(path, "w") as output:
-                output.write(str(conf))
+        path = QFileDialog.getSaveFileName(self, 
+                                           'Save configuration', '', 
+                                           file_choices)
+        if not path and path[0]:
+          return
+
+        path = path[0]
+
+        if not path.endswith(".ggc"): path += ".ggc"
+        
+        with open(path, "w") as output:
+          output.write(str(conf))
 
     def open_config(self):
         file_choices = "Grisbi Graph Configuration (*.ggc)"
-        path = unicode(QFileDialog.getOpenFileName(self, 
-            'Open file', '', 
-            file_choices))
-        if path:
-            with open(path, "r") as inputfile:
-                conf_str = inputfile.read()
-                self.load_config(conf_str)
+        path = QFileDialog.getOpenFileName(self, 
+                                           'Open file', '', 
+                                           file_choices)
+
+        if not (path and path[0]):
+          return
+
+        path = path[0]
+        
+        with open(path, "r") as inputfile:
+          conf_str = inputfile.read()
+          self.load_config(conf_str)
     
     def load_config(self, conf_str):
         Configuration.restore_from_string(conf_str, self)
@@ -772,7 +816,10 @@ class MyTableModel(QAbstractTableModel):
     def headerData(self, idx, orientation, role):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return QVariant(self.header[idx])
+              if len(self.header) <= idx:
+                return QVariant()
+              
+              return QVariant(self.header[idx])
             else:
                 which_group_idx = idx % self.nb_groups
                 which_group = self.groups[which_group_idx]

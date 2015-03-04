@@ -43,17 +43,15 @@ class Env:
     def build_graph(self,conf_str, no_graph=False):
         self.counter.cnt += 1  
         self.form.load_config(conf_str)
-        if not no_graph:
-            img_path = self.form.save_plot(self.dir_prefix+"graph%d.png" % self.counter.cnt)
-        else:
-            img_path = "nop"
+        img_path = "nop" if no_graph \
+            else self.form.save_plot(self.dir_prefix+"graph%d.png" % self.counter.cnt)
         
         legend = {}
         for item_idx in xrange(self.form.listSelected.count()):
             item = self.form.listSelected.item(item_idx)
             name = item.text()
-            uid = str(item.data(Qt.UserRole).toPyObject())
-            color = item.data(Qt.BackgroundRole).toPyObject().getRgb()
+            uid = item.data(Qt.UserRole)
+            color = item.data(Qt.BackgroundRole).getRgb()
             legend[uid] = {"color":color, "name":name}
         
         dates = self.form.tableMathModel.dates
