@@ -17,6 +17,7 @@ class Request:
 def processRequest(rq):
     ops = Operators()
 
+    ops.END_OF_MONTHLY = rq.frequence == "endofmonth"
     ops.MONTHLY = rq.frequence == "month"
     ops.DAILY = rq.frequence == "day"
     
@@ -32,11 +33,12 @@ def processRequest(rq):
     Bank.processTransactions(ops,
                              start=Bank.Date(*rq.start), 
                              stop=Bank.Date(*rq.stop))
-    return {"maths": opMaths.dump(), "graph": opGraph.raw()}
+    return {"maths": opMaths.dump(), "graph": opGraph.raw(ops.END_OF_MONTHLY)}
 
 class GrisbiDataProvider:
     def __init__(self, filename):
-        Grisbi.do_import(filename)
+        self.filename = filename
+        self.valid = Grisbi.do_import(filename)
     
     def get_first_last_date(self):
         return Bank.get_first_last_date()

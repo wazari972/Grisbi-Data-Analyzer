@@ -8,6 +8,8 @@ import StringIO
 import pickle
 import calendar
 
+import numpy as np
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -36,6 +38,14 @@ import Report
 
 WINDOW_NAME = 'Grisbi Data Plotter: %s'
 
+def protected(fct):
+  def protection(*args, **kwargs):
+    try:
+      return fct(*args, **kwargs)
+    except Exception as e:
+      print("failed: {}".format(e))
+  return protection
+
 class AppForm(QMainWindow):
     def __init__(self, parent=None, app=None):
         QMainWindow.__init__(self, parent)
@@ -45,12 +55,16 @@ class AppForm(QMainWindow):
         self.src = None
         if len(sys.argv) >= 2:
             path = sys.argv[1]
+
+            path = "/home/kevin/My accounts.gsb"#print("hello "+path)
             try:
                 self.src = GrisbiDataProvider(path)
-                self.set_current_file(path)
-            except NameError:
-                pass
-        
+                if not self.src.valid:
+                    print("Could not import {}".format(path))
+                else:
+                    self.set_current_file(path)
+            except NameError as e:
+                print(e)
         #while self.src is None:
         #    self.open_grisbi(initial=True)
         
@@ -142,7 +156,7 @@ class AppForm(QMainWindow):
         
         isPie = "pie" in gtype
         isLine = "line" in gtype
-        
+        isBar = "bar" in gtype
         is3d = "3d" in gtype
         
         if isPie:
@@ -204,8 +218,9 @@ class AppForm(QMainWindow):
             
     def showHideMaths(self):
         self.tableMath.setVisible(self.maths_cb.isChecked())
-        
-    def on_draw(self):
+
+    @protected
+    def on_draw(self, ready=False):
         """ Redraws the figure
         """
         gtype = self.cboxGType.itemData(self.cboxGType.currentIndex())
@@ -217,7 +232,9 @@ class AppForm(QMainWindow):
             frequency = "month"
         elif self.radioDay.isChecked():
             frequency = "day"
-        
+        elif self.radioEndOfMonth.isChecked():
+            frequency = "endofmonth"
+            
         accu = self.accu_cb.isChecked()
         fill = self.fill_cb.isChecked()
         
@@ -258,10 +275,7 @@ class AppForm(QMainWindow):
         self.tableMath.clearSpans()
 
         key = "All" if accu or not selected else selected.keys()[0]
-        if len(mathData[key]) != 0:
-            header = mathData[key][0].keys()
-        else:
-            header = []
+        header = mathData[key][0].keys() if mathData[key] else []
         values = mathData
         
         tm = MyTableModel(values, header, selected.keys() if not accu else ["All"], frequency) 
@@ -270,27 +284,20 @@ class AppForm(QMainWindow):
         
         self.tableMath.setShowGrid(False)
         
-        if frequency is None:
-            self.tableMath.verticalHeader().setVisible(False)
-        else:
-            self.tableMath.verticalHeader().setVisible(True)
+        self.tableMath.verticalHeader().setVisible(frequency is not None)
         self.tableMath.resizeColumnsToContents()
         self.tableMath.setSortingEnabled(False)
         
         # clear the axes and redraw the plot anew
-        #
         self.axes.clear()
         
         plots = []
         previous = 0
         series = []
         
-        if "pie" in gtype:
-            pie_values = []
+        if "pie" in gtype: pie_values = []
         
-        dates = []
-        for date in graphData.keys():
-            dates.append(datetime.datetime.strptime(date, '%Y-%m-%d'))
+        dates = [datetime.datetime.strptime(date, '%Y-%m-%d') for date in graphData.keys()]
         
         left = range(len(graphData.values()))
         
@@ -306,9 +313,10 @@ class AppForm(QMainWindow):
                 actual_current = current
                 
                 if accu and previous != 0:
-                        actual_current = [k+j for k, j in zip(previous, current)]
+                  actual_current = [k+j for k, j in zip(previous, current)]
+                  
                 if fill:
-                    self.axes.fill_between(dates, previous, actual_current, color=color)
+                  self.axes.fill_between(dates, previous, actual_current, color=color)
 
                 #plot = self.axes.plot_date(dates, actual_current, color=color, linestyle='-', marker="")
                 plot = self.axes.plot_date(dates, actual_current, c=color, linestyle='-', marker="")
@@ -322,12 +330,42 @@ class AppForm(QMainWindow):
                 series.append(current)
                 maxVal = max(current + [maxVal])
                 minVal = min(current + [minVal])
+            elif "bar" in gtype:
+              pass
             else:
                 print "no mode selected ... "+gtype
             
             plots.append(plot)
             self.canvas.draw()
-        
+
+        if "bar" in gtype:
+          # http://matplotlib.org/examples/pylab_examples/bar_stacked.html
+
+          legend_what = []
+          legend_name = []
+
+          ind = np.arange(len(graphData))
+          width = 0.5 if accu else 1. / (len(selected)+1)
+
+          prev = 0
+          for i, (ident, name) in enumerate(selected.items()):  
+            bar_values = [value[ident] for value in graphData.values()]
+            bar = self.axes.bar(ind if accu else ind+width*i,
+                                bar_values, width,
+                                color=colors.next(),
+                                bottom=prev)
+            if accu:
+              prev += np.array(bar_values)
+              
+            legend_what.append(bar[0])
+            legend_name.append(name)
+
+          self.axes.xaxis.set_ticklabels(graphData.keys())
+          self.axes.set_xticks(ind+width/2)
+
+          if legend:
+            self.axes.legend(legend_what, legend_name )
+          
         if "pie" in gtype:
             the_labels = labels if legend else None
             self.axes.pie(pie_values, labels=the_labels, autopct='%1.0f%%', shadow=True)
@@ -443,12 +481,14 @@ class AppForm(QMainWindow):
         self.grpFrequency = QGroupBox("Frequency")
         self.radioDay = QRadioButton("Daily", self.grpFrequency)
         self.radioMonth = QRadioButton("Monthly", self.grpFrequency)
+        self.radioEndOfMonth = QRadioButton("End of Month Summary", self.grpFrequency)
         self.radioAll = QRadioButton("All", self.grpFrequency)
         self.radioAll.setChecked(True)
         
         vboxFrequency = QVBoxLayout()
         vboxFrequency.addWidget(self.radioDay)
         vboxFrequency.addWidget(self.radioMonth)
+        vboxFrequency.addWidget(self.radioEndOfMonth)
         vboxFrequency.addWidget(self.radioAll)
         self.grpFrequency.setLayout(vboxFrequency);
         
@@ -467,6 +507,7 @@ class AppForm(QMainWindow):
         self.set_startstop_dates()
         
         self.cboxGType = QComboBox()
+        add_item_to_cbox(self.cboxGType, "Bars", "bar")
         add_item_to_cbox(self.cboxGType, "Line", "line")
         add_item_to_cbox(self.cboxGType, "Pie", "pie")
         add_item_to_cbox(self.cboxGType, "3D curves", "3d curves")
@@ -598,12 +639,13 @@ class AppForm(QMainWindow):
 
         source_name = source_name[0]
         report_name = ".".join(source_name.split("/")[-1].split(".")[:-1])
-        report_dir = source_name.split("/")[:-1]
+        report_dir = "out/reports"
         target_name = QFileDialog.getSaveFileName(self, 'Save report', "%s/%s" % (report_dir, report_name), 'Report file (%s)' % report_name)
 
         if not (target_name and target_name[0]):
           return
-
+        self.app.processEvents()
+        
         target_name = target_name[0]
         splash_pix = QPixmap('splash_loading.png')
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
@@ -612,15 +654,16 @@ class AppForm(QMainWindow):
         
         self.app.processEvents()
         Report.to_transform(self, source_name, target_name)
-        
         splash.close()
+        
         try:
           from subprocess import Popen, PIPE
-          p = Popen(['xsel','-pi'], stdin=PIPE)
+          p = Popen(['xsel','-pib'], stdin=PIPE)
           p.communicate(input=target_name)
           copied = True
         except:
           copied = False
+          
         QMessageBox.about(self, "Report generated", "Report saved into '%s'%s" % (target_name, "" if not copied else " (copied into clipboard)"))
 
     def info_categories(self):
@@ -670,7 +713,9 @@ class AppForm(QMainWindow):
         path = QFileDialog.getOpenFileName(self, 
                                            'Open file', '', 
                                            file_choices)
-        
+        if not path:
+          return
+        path = path[0]
         if not os.path.exists(path):
           return
         
@@ -700,7 +745,10 @@ class AppForm(QMainWindow):
         else:
             accounts = None
             subcategories = selected
-        frequency = "month" if self.radioMonth.isChecked() else "day" if self.radioDay.isChecked() else "all"
+        frequency = "month" if self.radioMonth.isChecked() else \
+            "endofmonth" if self.radioEndOfMonth.isChecked() else \
+            "day" if self.radioDay.isChecked() \
+            else "all"
         conf = Configuration(
             accu=self.accu_cb.isChecked(),
             fill=self.fill_cb.isChecked(),
@@ -906,10 +954,9 @@ class Configuration:
         for part in string.split(";"):
             if part in Configuration.PROPERTIES:
                 setattr(conf, part, True)
-            elif part in ("day", "month", "all"):
-                print "frequency", part
+            elif part in ("day", "month", "all", "endofmonth"):
                 conf.frequency = part
-            elif part in ("pie", "line", "3d curves"):
+            elif part in ("pie", "line", "3d curves", "bar"):
                 conf.gtype = part
             elif part[:3] in ("acc", "cat"):
                 lst = part[4:-1].split("/")
@@ -982,6 +1029,8 @@ class Configuration:
             to_select = target.radioAll
         elif self.frequency == "month":
             to_select = target.radioMonth
+        elif self.frequency == "endofmonth":
+            to_select = target.radioEndOfMonth
         else:
             to_select = target.radioDay
         

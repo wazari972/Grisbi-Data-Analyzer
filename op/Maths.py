@@ -46,8 +46,11 @@ class Maths(Operator):
                 for doer in self.doers:
                     ret = OrderedDict(ret.items() + doer.dump(key).items())
                 self.dumps[key].append(ret)
-            self.dumps["date"].append((self.ops.currentYear, self.ops.currentMonth, self.ops.currentDay))
+            self.dumps["date"].append((self.ops.currentYear,
+                                       self.ops.currentMonth,
+                                       self.ops.currentDay))
             self.dumped = True
+
         dumps = self.dumps
         if not intermediate:
             self.dumps = defaultdict(lambda : [])
@@ -56,7 +59,7 @@ class Maths(Operator):
     def init_value():
         return None
         
-    def rotate(self):
+    def rotate(self, save_last=False):
         self.dump(intermediate=True)
 ###########################################
 

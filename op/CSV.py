@@ -7,7 +7,7 @@ class DateValue:
     def __init__(self, date, values):
         self.date = date
         self.values = values
-    
+        self.end_of_month = False
 
 class CSV(Operator):
     uid = 1
@@ -67,14 +67,20 @@ class CSV(Operator):
     month = day
     year = day
 
-    def reset(self):
+    def reset(self, save_last=False):
+        if save_last:
+            self.transacs[-1].end_of_month = True
+            self.transacs = [tr for tr in self.transacs if tr.end_of_month]
         self.current = DateValue(self.currentKey(self.ops), self.newDayValues(None))
     
     def name(self):
         return self.uid
-
         
-    def raw(self):
+    def raw(self, save_last):
+        if save_last:
+            self.transacs[-1].end_of_month = True
+            self.transacs = [tr for tr in self.transacs if tr.end_of_month]
+        
         data = OrderedDict()
         for dateValue in self.transacs:
             dct = {}
@@ -101,12 +107,14 @@ class CSV(Operator):
                     lst.append(dateValue.values[key])
                 writer.writerow(lst)
             ofile.close()
+
             return self.do_plot(fname)
         finally:
             ofile.close()
             
     def inverted(self):
         return False
+
 class CSV_Cumul:
     def __init__(self):
         pass
@@ -217,8 +225,8 @@ class CSV_Category(CSV):
     def inverted(self):
         return self.cat.inverted
         
-    def rotate(self):
-        self.reset()
+    def rotate(self, save_last=True):
+        self.reset(save_last)
         self.day()
         
         
@@ -243,8 +251,8 @@ class CSV_SubCategories(CSV):
     def inverted(self):
         return self.invert
         
-    def rotate(self):
-        self.reset()
+    def rotate(self, save_last=False):
+        self.reset(save_last)
         self.day()
 
 class CSV_Cumul_SubCategories(CSV_Cumul, CSV_SubCategories):

@@ -10,7 +10,6 @@ class Counter:
     def __init__(self):
         self.cnt = 0
 
-
 class Env:
     def __init__(self, form, dir_prefix):
         self.form = form
@@ -130,5 +129,6 @@ def main():
     form = AppForm()
     final = to_transform(form, source_name, target_name)
     print "Successfully transformed into '%s'" % target_name
+
 if __name__ == "__main__":
     main()

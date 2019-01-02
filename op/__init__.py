@@ -2,6 +2,8 @@ class Operators:
     def __init__(self):
         self.MONTHLY = False
         self.DAILY = False
+        self.END_OF_MONTHLY = False
+        
         self.operations = []
         
         self.currentDay = None
@@ -22,18 +24,18 @@ class Operators:
         self.currentDay = day
         for oper in self.operations:
             oper.year()
-            if oper.monthly:
-                oper.rotate()
+            if oper.monthly or oper.end_of_monthly:
+                oper.rotate(save_last=oper.end_of_monthly)
 
     def new_month(self, month, day):
         #print "Month %s" % month
         self.currentMonth = month
         self.currentDay = day
-        for op in self.operations:
-            op.month()
-            if op.monthly:
-                op.rotate()
-
+        for oper in self.operations:
+            oper.month()
+            if oper.monthly or oper.end_of_monthly:
+                oper.rotate(save_last=oper.end_of_monthly)
+            
     def new_day(self, day):
         self.currentDay = day
         for oper in self.operations:
@@ -50,6 +52,7 @@ class Operator:
     def __init__(self, ops):
         self.monthly = ops.MONTHLY
         self.daily = ops.DAILY
+        self.end_of_monthly = ops.END_OF_MONTHLY
         self.registered = False
         
         self.ops = ops
@@ -70,7 +73,7 @@ class Operator:
     def register(self):
         self.registered = True
     
-    def rotate(self): pass
+    def rotate(self, save_last=False): pass
     
 
     

@@ -7,7 +7,7 @@ from Bank import Account, Category, SubCategory, Transaction, Date
 
 def do_import(filename):
     if not os.path.exists(filename):
-        return
+        return False
     Grisbi = etree.parse(filename).getroot()
 
     Account.empty()
@@ -43,3 +43,4 @@ def do_import(filename):
                     montant, internal)
 
     Transaction.import_finish()
+    return True
