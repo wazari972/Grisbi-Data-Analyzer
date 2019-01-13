@@ -63,18 +63,20 @@ class Account(dict):
         self._transactions_repr.append(repr(trans))
         
     def save_to_file(self):
-        with open("in/{}.csv".format(self.web_acc.id), "w") as out_f:
+        name = "_".join(self.web_acc.label.strip().split())
+        with open("in/{}.csv".format(name), "w") as out_f:
             for trans in self.transactions:
                 print(trans, file=out_f)
 
     def load_from_file(self):
-         self.transactions = [Transaction.from_line(line) for line in
-                              open("in/{}.csv".format(self.web_acc.id), "r").readlines()]
+        name = "_".join(self.web_acc.label.strip().split())
+        self.transactions = [Transaction.from_line(line) for line in
+                             open("in/{}.csv".format(name), "r").readlines()]
          
-         for trans in self.transactions:
-             trans["amount"] = float(trans["amount"])
-         
-         self._update_trans_repr()
+        for trans in self.transactions:
+            trans["amount"] = float(trans["amount"])
+            
+        self._update_trans_repr()
          
     def update_from_web(self):
         weboob, web_accounts = login_weboob()
@@ -109,7 +111,7 @@ class Transaction(dict):
         trans['amount'] = float(web_trans.amount)
         label = web_trans.label
         trans['label'] = boobank_cate.RENAME.get(label, label)
-        trans.set_category()
+        trans['category'] = trans.find_category()
 
         return trans
     
@@ -119,28 +121,31 @@ class Transaction(dict):
                              zip(Transaction.FILE_KEYS,
                                  line[:-1].replace("€", "").split("|"))})
 
+        cate = trans.find_category()
         if not trans['category']:
-            trans['category'] = None
-            trans.set_category()
+            trans['category'] = cate # no cate yet, find one (or not)
+        else:
+            # already has a cate, update it only if we can find one
+            if trans.find_category():
+                trans['category'] = trans.find_category()
+
         return trans
     
-    def set_category(self):
-        try:
-            cate = self['category']
-            if cate is not None:
-                return cate
-        except KeyError: pass
-
+    def find_category(self):
         label = self["label"]
+
+        try: label = boobank_cate.RENAME[label]
+        except KeyError: pass
+        label = label.lower()
         for cate, name_lst in boobank_cate.CATEGORIES.items():
             for name in name_lst:
+                name = name.lower()
                 if (label.startswith(name)
                     or label.endswith(name)
                     or f" {name} " in label):
-                    self['category'] = cate
                     return cate
-        else:
-            self['category'] = ''
+
+        return ''
     
     def __str__(self):
         return " | ".join([self['date'],
@@ -161,7 +166,7 @@ class Summary():
     def __init__(self, account_filter):
         self.account_filter = account_filter
 
-        self.by_category_amout = defaultdict(float)
+        self.by_category_amount = defaultdict(float)
         self.by_category_trans = defaultdict(list)
         
         self.accounts = []
@@ -171,26 +176,41 @@ class Summary():
         if not trans_cate: trans_cate = "*"
         
         cate_key = str(trans['date'])[:7] + " "+ trans_cate
-        self.by_category_amout[cate_key] += float(trans['amount'])
+        self.by_category_amount[cate_key] += float(trans['amount'])
         self.by_category_trans[cate_key] += [trans]
         
-    def print_cate(self):
+    def print_cate(self, details):
         cate_filter = [f for f in self.account_filter if f.startswith("+")]
         prev_month = ""
-        for k, v in self.by_category_amout.items():
-            month, _, cate = k.partition(" ")
+
+        month_total = 0
+        def print_month_total():
+            nonlocal month_total
+            print("     * ========= -")
+            print(f"     * {month_total:8.2f}€")
+            month_total = 0
+            
+        for month_cate in sorted(self.by_category_amount.keys()):
+            total_amount = self.by_category_amount[month_cate]
+            month, _, cate = month_cate.partition(" ")
             if prev_month != month:
-                print()
+                if prev_month:
+                    print_month_total()
+                    print()
                 print(month)
                 prev_month = month
 
             if cate_filter and "+"+cate not in cate_filter:
                 continue
-            print(f"     * {v:8.2f}€ - {cate}")
-            for trans in self.by_category_trans[k]:
-                print(f"     {trans}")
+            if cate != "Carte/total":
+                month_total += total_amount
+            print(f"     * {total_amount:8.2f}€ - {cate}")
+            if not details: continue
+            
+            for trans in self.by_category_trans[month_cate]: print(f"     {trans}")
             print("")
-
+        print_month_total()
+        
     def add_account(self, acc):
         self.accounts.append(acc)
 
@@ -213,6 +233,7 @@ def main():
     RELOAD_ACCOUNTS = get_opt('reload', False)
     UPDATE_HISTORY = get_opt('update', False)
     SAVE_HISTORY = get_opt('save', True)
+    DETAIL_BY_CATE = get_opt('detail', False)
     HELP = get_opt('?', False)
 
     if HELP:
@@ -252,7 +273,7 @@ def main():
         if SAVE_HISTORY:
             acc.save_to_file()
             
-    summary.print_cate()
+    summary.print_cate(DETAIL_BY_CATE)
     
     if UPDATE_HISTORY:
         summary.print_acc_update()
