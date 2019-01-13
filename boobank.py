@@ -5,6 +5,7 @@ import pickle
 from weboob.capabilities.base import NotLoadedType
 from weboob.capabilities.base import NotAvailableType
 from collections import defaultdict
+import os
 
 import boobank_cate
 
@@ -19,139 +20,250 @@ def obj_to_dict(obj):
         dct[name] = val
     return dct
 
-def save():
-    weboob = Weboob()
-    print("Logging in ...")
-    weboob.load_backends(names=['creditcooperatif'])
-    
-    print("Get the account list ...")
-    accounts = []
-    for acc in weboob.do("iter_accounts"):
-        accounts.append(acc)
-        print("Get '{}' transactions ...".format(acc.label))
+
+_weboob = None
+_accounts = None
+def login_weboob():
+    global _weboob, _accounts
+
+    if not _weboob:
+        _weboob = Weboob()
+        print("Logging in with Weboob...")
+        _weboob.load_backends(names=['creditcooperatif'])
         
-        trans = [obj_to_dict(trans) for trans in weboob.do("iter_history", acc)]
-        
-        print("Save transactions from '{}' ...".format(acc.label))
-        pickle.dump(trans, open("in/{}.pickle".format(acc.id), "wb"))
-        print('')
-        
-    pickle.dump(accounts, open("in/accounts.pickle", "wb"))
-
-
-    
-def print_account(acc):
-    print(f"# {acc.id} | {acc.label}\t| {acc.balance}€")
-
-
-summary = defaultdict(float)
-    
-def print_transaction(trans):
-
-
-    trans_cate = "Autres"
-    trans_label = trans['label']    
-
-    summary_key = str(trans['date'])[:7] + " "+ trans_cate
-    summary[summary_key] += float(trans['amount'])
-
-
-def print_summary(account_filter):
-    cate_filter = [f for f in account_filter if f.startswith("+")]
-    prev_month = ""
-    for k, v in summary.items():
-        month, _, cate = k.partition(" ")
-        if prev_month != month:
-            print()
-            print(month)
-            prev_month = month
-
-        if cate_filter and "+"+cate not in cate_filter:
-            continue
-        print(f"     {v:8.2f}€ - {cate}")
-
-def cate(trans):
-    label = trans["label"]
-    for cate, name_lst in boobank_cate.CATEGORIES.items():
-        for name in name_lst:
-            if (label.startswith(name)
-                or label.endswith(name)
-                or f" {name} " in label):
-                return cate
-    return ''
-
-def prep(trans):
-    trans_str = {}
-    
-    trans_str['date'] = str(trans['date'])
-    try:
-        trans_type = trans['type'].name
-    except KeyError:
-        trans_type = ""
-    trans_str['type'] = f"{trans_type:<13}"
-    trans_str['amount'] = f"{float(trans['amount']):8.2f}€"
-    trans_str['label'] = "{:<32s}".format(boobank_cate.RENAME.get(trans['label'], trans['label']))
-    trans_str['category'] = cate(trans_str)
-
-    return trans_str
-
-FILE_KEYS = ('date', 'type', 'amount', 'label',  'category')
-
-def trans2string(trans_str):
-    return " | ".join([trans_str[key] for key in FILE_KEYS])
-
-
-def save2(acc, transactions):
-     with open("in/{}.csv".format(acc.id), "w") as out_f:
-         for trans in transactions:
-             print(trans2string(prep(trans)), file=out_f)
-
-
-             
-def parse(line):
-    return {k: v for k, v in zip(FILE_KEYS, line[:-1].split("|"))}
-
-def load2(acc):
-    return [parse(line) for line in
-            open("in/{}.csv".format(acc.id), "r").readlines()]
-
-
-def load(account_filter):
-    RELOAD_ACCOUNTS = False
-    if RELOAD_ACCOUNTS:
         print("Get the account list ...")
-        weboob = Weboob()
-        print("Logging in ...")
-        weboob.load_backends(names=['creditcooperatif'])
-        accounts = weboob.do("iter_accounts")
-    else:
-        accounts = pickle.load(open("in/accounts.pickle", "rb"))
+        _accounts = list([web_acc for web_acc in _weboob.do("iter_accounts")])
+        print("Weboob ready!")
         
-    account_only = account_filter and account_filter[0] == "-"
+    return _weboob, _accounts
+
+
+class Account(dict):
+    def __init__(self, web_acc):
+        super().__init__(self)
         
-    for acc in accounts:
-        if account_only:
-            pass
-        elif account_filter and acc.id not in account_filter:
-            continue
-        else:
-            print("")
-        print_account(acc)
-        if account_only: continue
+        self.web_acc = web_acc
+        self.transactions = None
+        self._transactions_repr = None
+        self.new_transactions = 0
+
+        self.id = self.web_acc.id
+        self.label = self.web_acc.label
         
-        for trans in load2(acc):
-            print(trans2string(trans))
+    def _update_trans_repr(self):
+        self._transactions_repr = [repr(trans) for trans in self.transactions]
+
+    def contains_trans(self, trans):
+        return repr(trans) in self._transactions_repr
         
-    print_summary(account_filter)
+    def _insert_trans(self, trans):
+        print(f"New: {trans}")
+
+        self.transactions.append(trans)
+        self._transactions_repr.append(repr(trans))
+        
+    def save_to_file(self):
+        with open("in/{}.csv".format(self.web_acc.id), "w") as out_f:
+            for trans in self.transactions:
+                print(trans, file=out_f)
+
+    def load_from_file(self):
+         self.transactions = [Transaction.from_line(line) for line in
+                              open("in/{}.csv".format(self.web_acc.id), "r").readlines()]
+         
+         for trans in self.transactions:
+             trans["amount"] = float(trans["amount"])
+         
+         self._update_trans_repr()
+         
+    def update_from_web(self):
+        weboob, web_accounts = login_weboob()
+        print(f"Get transaction updates for {self} ...")
+        for web_trans in weboob.do("iter_history", self.web_acc):
+            trans = Transaction.from_weboob(web_trans)
+
+            if self.contains_trans(trans): continue
+            
+            self.new_transactions += 1
+            self._insert_trans(trans)
+        print(f"  |> {self.new_transactions} updates ...")
+        
+    def __str__(self):
+        return f"# {self.web_acc.id} | {self.web_acc.label}\t| {float(self.web_acc.balance):7.2f}€"
+
+
+class Transaction(dict):
+    FILE_KEYS = ('date', 'type', 'amount', 'label',  'category')
+
+    @staticmethod
+    def from_weboob(web_trans):
+        trans = Transaction()
+
+        trans['date'] = str(web_trans.date)
+        try:
+            trans_type = web_trans.type.name
+        except KeyError:
+            trans_type = ""
+            
+        trans['type'] = trans_type
+        trans['amount'] = float(web_trans.amount)
+        label = web_trans.label
+        trans['label'] = boobank_cate.RENAME.get(label, label)
+        trans.set_category()
+
+        return trans
     
+    @staticmethod
+    def from_line(line):
+        trans = Transaction({k: v.strip() for k, v in
+                             zip(Transaction.FILE_KEYS,
+                                 line[:-1].replace("€", "").split("|"))})
+
+        if not trans['category']:
+            trans['category'] = None
+            trans.set_category()
+        return trans
+    
+    def set_category(self):
+        try:
+            cate = self['category']
+            if cate is not None:
+                return cate
+        except KeyError: pass
+
+        label = self["label"]
+        for cate, name_lst in boobank_cate.CATEGORIES.items():
+            for name in name_lst:
+                if (label.startswith(name)
+                    or label.endswith(name)
+                    or f" {name} " in label):
+                    self['category'] = cate
+                    return cate
+        else:
+            self['category'] = ''
+    
+    def __str__(self):
+        return " | ".join([self['date'],
+                           f"{self['type']:<13}",
+                           f"{float(self['amount']):8.2f}€",
+                           f"{self['label']:<32s}",
+                           self['category']])
+
+    def __repr__(self):
+        keys = []
+        keys[:] = Transaction.FILE_KEYS
+        keys.remove('category')
+        
+        return " | ".join([str(self[key]).strip() for key in keys])
+
+    
+class Summary():
+    def __init__(self, account_filter):
+        self.account_filter = account_filter
+
+        self.by_category_amout = defaultdict(float)
+        self.by_category_trans = defaultdict(list)
+        
+        self.accounts = []
+        
+    def add_transaction(self, acc, trans):
+        trans_cate = trans['category']
+        if not trans_cate: trans_cate = "*"
+        
+        cate_key = str(trans['date'])[:7] + " "+ trans_cate
+        self.by_category_amout[cate_key] += float(trans['amount'])
+        self.by_category_trans[cate_key] += [trans]
+        
+    def print_cate(self):
+        cate_filter = [f for f in self.account_filter if f.startswith("+")]
+        prev_month = ""
+        for k, v in self.by_category_amout.items():
+            month, _, cate = k.partition(" ")
+            if prev_month != month:
+                print()
+                print(month)
+                prev_month = month
+
+            if cate_filter and "+"+cate not in cate_filter:
+                continue
+            print(f"     * {v:8.2f}€ - {cate}")
+            for trans in self.by_category_trans[k]:
+                print(f"     {trans}")
+            print("")
+
+    def add_account(self, acc):
+        self.accounts.append(acc)
+
+    def print_acc_update(self):
+        for acc in self.accounts:
+            print(f"{acc} |> {acc.new_transactions} new transactions")
+
+            
+def get_opt(name, default):
+    has = name in sys.argv
+    if has:
+        sys.argv.remove(name)
+        return True
+    return default
+
+def print_help():
+    print("not yet ...")
+
+def main():
+    RELOAD_ACCOUNTS = get_opt('reload', False)
+    UPDATE_HISTORY = get_opt('update', False)
+    SAVE_HISTORY = get_opt('save', True)
+    HELP = get_opt('?', False)
+
+    if HELP:
+        print_help()
+        return
+    
+    if os.path.exists("in/accounts.pickle") and not RELOAD_ACCOUNTS:
+        web_accounts = pickle.load(open("in/accounts.pickle", "rb"))
+    else:
+        _, web_accounts = login_weboob()
+        pickle.dump(web_accounts, open("in/accounts.pickle", "wb"))
+
+    account_filter = sys.argv[1:]
+    
+    account_only = account_filter and account_filter[0] == "-"
+
+    summary = Summary(account_filter)
+    
+    for web_acc in web_accounts:
+        if account_only:  pass
+        elif account_filter and web_acc.id not in account_filter: continue
+
+        acc = Account(web_acc)
+
+        summary.add_account(acc)
+        
+        if account_only: continue
+
+        acc.load_from_file()
+
+        if UPDATE_HISTORY:
+            acc.update_from_web()
+        
+        for trans in acc.transactions:
+            summary.add_transaction(acc, trans)
+
+        if SAVE_HISTORY:
+            acc.save_to_file()
+            
+    summary.print_cate()
+    
+    if UPDATE_HISTORY:
+        summary.print_acc_update()
+
+        
 if __name__ == "__main__":
     import sys
-
-    if len(sys.argv) >= 2 and sys.argv[1] == "save":
-        print("SAVE")
-        save()
-    else:
-        load(sys.argv[1:])
+    main()
 
 
 
+
+
+        
