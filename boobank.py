@@ -52,7 +52,10 @@ class Account(dict):
         
     def _update_trans_repr(self):
         self._transactions_repr = [repr(trans) for trans in self.transactions]
-
+        
+        self.transactions.sort()
+        self._transactions_repr.sort()
+        
     def contains_trans(self, trans):
         return repr(trans) in self._transactions_repr
         
@@ -60,12 +63,17 @@ class Account(dict):
         print(f"New: {trans}")
 
         self.transactions.append(trans)
+
+        assert not repr(trans) in self._transactions_repr
         self._transactions_repr.append(repr(trans))
+
+        self.transactions.sort()
+        self._transactions_repr.sort()
         
     def save_to_file(self):
         name = "_".join(self.web_acc.label.strip().split())
         with open("in/{}.csv".format(name), "w") as out_f:
-            for trans in self.transactions:
+            for trans in sorted(self.transactions):
                 print(trans, file=out_f)
 
     def load_from_file(self):
@@ -91,7 +99,7 @@ class Account(dict):
         print(f"  |> {self.new_transactions} updates ...")
         
     def __str__(self):
-        return f"# {self.web_acc.id} | {self.web_acc.label}\t| {float(self.web_acc.balance):7.2f}€"
+        return f"# {self.web_acc.id} | {self.web_acc.label}\t| {float(self.web_acc.balance):8.2f}€"
 
 
 class Transaction(dict):
@@ -161,7 +169,9 @@ class Transaction(dict):
         
         return " | ".join([str(self[key]).strip() for key in keys])
 
-    
+    def __lt__(self, other):
+         return self["date"] < other["date"]
+                                
 class Summary():
     def __init__(self, account_filter):
         self.account_filter = account_filter
@@ -226,19 +236,31 @@ def get_opt(name, default):
         return True
     return default
 
+class git():
+    @staticmethod
+    def pull():
+        os.system("git -C in pull")
+
+    @staticmethod
+    def commit_all_and_push():
+        os.system("git -C in commit -am ; git push")
+        
 def print_help():
     print("not yet ...")
 
+    
 def main():
     RELOAD_ACCOUNTS = get_opt('reload', False)
     UPDATE_HISTORY = get_opt('update', False)
-    SAVE_HISTORY = get_opt('save', True)
+    SAVE_HISTORY = get_opt('save', False)
     DETAIL_BY_CATE = get_opt('detail', False)
     HELP = get_opt('?', False)
 
     if HELP:
         print_help()
         return
+
+    git.pull()
     
     if os.path.exists("in/accounts.pickle") and not RELOAD_ACCOUNTS:
         web_accounts = pickle.load(open("in/accounts.pickle", "rb"))
@@ -278,6 +300,8 @@ def main():
     if UPDATE_HISTORY:
         summary.print_acc_update()
 
+    if SAVE_HISTORY:
+        git.commit_all_and_push()
         
 if __name__ == "__main__":
     import sys
