@@ -4,6 +4,7 @@ from weboob.core import Weboob
 import pickle
 from weboob.capabilities.base import NotLoadedType
 from weboob.capabilities.base import NotAvailableType
+from weboob.capabilities.bank import TransactionType
 from collections import defaultdict
 import os
 
@@ -20,6 +21,12 @@ def obj_to_dict(obj):
         dct[name] = val
     return dct
 
+
+def int_to_TransactionType(val):
+    for name, value in TransactionType._items:
+        if val == value:
+            return name
+    return ""
 
 _weboob = None
 _accounts = None
@@ -110,10 +117,8 @@ class Transaction(dict):
         trans = Transaction()
 
         trans['date'] = str(web_trans.date)
-        try:
-            trans_type = web_trans.type.name
-        except KeyError:
-            trans_type = ""
+
+        trans_type = int_to_TransactionType(web_trans.type)
             
         trans['type'] = trans_type
         trans['amount'] = float(web_trans.amount)
@@ -239,23 +244,24 @@ def get_opt(name, default):
 class git():
     @staticmethod
     def pull():
-        os.system("git -C in pull")
+        os.system("git -C in pull | grep -v 'eady up to dat'")
 
     @staticmethod
     def commit_all_and_push():
-        os.system("git -C in commit -am ; git push")
+        os.system("git -C in diff && git -C in commit -am 'update' && git -C in push")
         
 def print_help():
     print("not yet ...")
 
     
 def main():
-    RELOAD_ACCOUNTS = get_opt('reload', False)
     UPDATE_HISTORY = get_opt('update', False)
-    SAVE_HISTORY = get_opt('save', False)
+    RELOAD_ACCOUNTS = get_opt('reload', UPDATE_HISTORY)
+    SAVE_HISTORY = get_opt('save', UPDATE_HISTORY)
+    PRINT_CATE = get_opt('cate', not UPDATE_HISTORY)
     DETAIL_BY_CATE = get_opt('detail', False)
-    HELP = get_opt('?', False)
-
+    HELP = get_opt('--help', get_opt('-h', False))
+    
     if HELP:
         print_help()
         return
@@ -294,8 +300,9 @@ def main():
 
         if SAVE_HISTORY:
             acc.save_to_file()
-            
-    summary.print_cate(DETAIL_BY_CATE)
+
+    if PRINT_CATE:
+        summary.print_cate(DETAIL_BY_CATE)
     
     if UPDATE_HISTORY:
         summary.print_acc_update()
